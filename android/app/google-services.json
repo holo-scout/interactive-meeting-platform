@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "282843899686",
+    "project_id": "interactive-meeting-plat-238c9",
+    "storage_bucket": "interactive-meeting-plat-238c9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:282843899686:android:c51c854605209684f503e7",
+        "android_client_info": {
+          "package_name": "com.example.interactive_meeting_platform"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBbfsNUeWBywbjx0IG4B2EzSbLTd98xTLo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
