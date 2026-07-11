@@ -1,17 +1,51 @@
 # interactive_meeting_platform
+An interactive meeting platform developed as a Final Year Project that enables lecturers and presenters to engage participants through live Q&A sessions, polls, quizzes, and AI-assisted quiz generation.
 
-Final Year Project
+## Status
+🚧 In Development (Final Year Project)
 
-## Getting Started
+## Overview
+This project aims to improve audience engagement during lectures, seminars, and meetings by providing an easy-to-use platform where participants can anonymously ask questions, answer polls, participate in quizzes, and receive real-time updates.
 
-This project is a starting point for a Flutter application.
+The application also integrates AI-assisted features to help lecturers generate quizzes from uploaded lecture materials.
 
-A few resources to get you started if this is your first Flutter project:
+## Features
+- User authentication
+- Create and manage meeting sessions
+- Join sessions using a unique code
+- Live Question & Answer
+- Anonymous question submission
+- Poll creation and voting
+- Interactive quizzes
+- AI-assisted quiz generation
+- Session analytics
+- User profile management
+- Favourite sessions
+- Responsive mobile interface
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## Technologies Used
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+### Frontend
+- Flutter
+- Dart
+
+### Backend
+- Firebase Authentication
+- Firebase Cloud Functions
+- Firebase Storage
+
+### Database
+- Firebase
+
+### Development Tools
+- Android Studio
+- Git
+- GitHub
+- Figma
+
+## Author
+Shak Yong Sim
+
+Bachelor of Computer Science
+
+Final Year Project (2026)
