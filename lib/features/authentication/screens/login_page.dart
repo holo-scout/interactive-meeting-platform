@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
+import 'signup_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -11,7 +13,10 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _authService = AuthService();
+
   bool _obscurePassword = true;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -20,26 +25,65 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Login is ready to connect to authentication.')),
-    );
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await _authService.signInWithEmailAndPassword(
+        _emailController.text.trim(),
+        _passwordController.text,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Logged in successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')),
+            backgroundColor: Theme
+                .of(context)
+                .colorScheme
+                .error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    const purple = Color(0xFF5939A4);
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    final mediaQuery = MediaQuery.of(context);
+    final screenWidth = mediaQuery.size.width;
+    final formWidth = screenWidth > 600 ? 400.0 : screenWidth * 0.85;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: colors.surface,
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 400),
+        child: SingleChildScrollView(
+          child: Center(
+            child: Container(
+              width: formWidth,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -54,6 +98,7 @@ class _LoginPageState extends State<LoginPage> {
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.next,
+                      enabled: !_isLoading,
                       decoration: const InputDecoration(
                         labelText: 'Email',
                         hintText: 'you@example.com',
@@ -74,7 +119,8 @@ class _LoginPageState extends State<LoginPage> {
                       controller: _passwordController,
                       obscureText: _obscurePassword,
                       textInputAction: TextInputAction.done,
-                      onFieldSubmitted: (_) => _submit(),
+                      enabled: !_isLoading,
+                      onFieldSubmitted: (_) => _isLoading ? null : _submit(),
                       decoration: InputDecoration(
                         labelText: 'Password',
                         border: const OutlineInputBorder(),
@@ -95,26 +141,38 @@ class _LoginPageState extends State<LoginPage> {
 
                     // Login button
                     FilledButton(
-                      onPressed: _submit,
+                      onPressed: _isLoading ? null : _submit,
                       style: FilledButton.styleFrom(
-                        backgroundColor: purple,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: const StadiumBorder(),
                       ),
-                      child: const Text('Log In'),
+                      child: _isLoading
+                          ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white),
+                        ),
+                      )
+                          : const Text('Log In'),
                     ),
                     const SizedBox(height: 14),
 
                     // Sign-up button
                     OutlinedButton(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Sign-up will be added with authentication.')),
+                      onPressed: _isLoading
+                          ? null
+                          : () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const SignUpPage(),
+                          ),
                         );
                       },
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: purple,
-                        side: const BorderSide(color: purple),
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: const StadiumBorder(),
                       ),
@@ -130,3 +188,4 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 }
+
