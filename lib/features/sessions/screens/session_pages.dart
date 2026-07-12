@@ -316,85 +316,94 @@ class _SessionPageTemplateState extends State<_SessionPageTemplate> {
           builder: (context, setDialogState) {
             return AlertDialog(
               title: Text('Create New Poll', style: textTheme.titleLarge),
-              content: SizedBox(
-                width: 450,
-                height: 350,
-                child: Form(
-                  key: formKey,
-                  child: Column(
-                    children: [
-                      TextFormField(
-                        controller: questionController,
-                        decoration: const InputDecoration(
-                          labelText: 'Poll Question',
-                          hintText: 'e.g. Which programming language do you prefer?',
-                          border: OutlineInputBorder(),
+              content: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: 450,
+                  maxHeight: MediaQuery
+                      .of(context)
+                      .size
+                      .height * 0.6,
+                ),
+                child: SingleChildScrollView(
+                  child: Form(
+                    key: formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        TextFormField(
+                          controller: questionController,
+                          decoration: const InputDecoration(
+                            labelText: 'Poll Question',
+                            hintText: 'e.g. Which programming language do you prefer?',
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (value) {
+                            if (value == null || value
+                                .trim()
+                                .isEmpty) {
+                              return 'Please enter a question';
+                            }
+                            return null;
+                          },
                         ),
-                        validator: (value) {
-                          if (value == null || value
-                              .trim()
-                              .isEmpty) {
-                            return 'Please enter a question';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      Expanded(
-                        child: ListView.builder(
-                          itemCount: optionControllers.length,
-                          itemBuilder: (context, index) {
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 8.0),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: TextFormField(
-                                      controller: optionControllers[index],
-                                      decoration: InputDecoration(
-                                        labelText: 'Option ${index + 1}',
-                                        border: const OutlineInputBorder(),
-                                      ),
-                                      validator: (value) {
-                                        if (value == null || value
-                                            .trim()
-                                            .isEmpty) {
-                                          return 'Please enter an option';
-                                        }
-                                        return null;
-                                      },
+                        const SizedBox(height: 16),
+                        ...optionControllers
+                            .asMap()
+                            .entries
+                            .map((entry) {
+                          final index = entry.key;
+                          final controller = entry.value;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8.0),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: controller,
+                                    decoration: InputDecoration(
+                                      labelText: 'Option ${index + 1}',
+                                      border: const OutlineInputBorder(),
                                     ),
+                                    validator: (value) {
+                                      if (value == null || value
+                                          .trim()
+                                          .isEmpty) {
+                                        return 'Please enter an option';
+                                      }
+                                      return null;
+                                    },
                                   ),
-                                  if (optionControllers.length > 2) ...[
-                                    const SizedBox(width: 8),
-                                    IconButton(
-                                      icon: Icon(Icons.delete_outline,
-                                          color: colors.error),
-                                      onPressed: () {
-                                        setDialogState(() {
-                                          optionControllers.removeAt(index);
-                                        });
-                                      },
-                                    ),
-                                  ]
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      if (optionControllers.length < 10) ...[
-                        TextButton.icon(
-                          onPressed: () {
-                            setDialogState(() {
-                              optionControllers.add(TextEditingController());
-                            });
-                          },
-                          icon: const Icon(Icons.add),
-                          label: const Text('Add Option'),
-                        ),
-                      ]
-                    ],
+                                ),
+                                if (optionControllers.length > 2) ...[
+                                  const SizedBox(width: 8),
+                                  IconButton(
+                                    icon: Icon(Icons.delete_outline,
+                                        color: colors.error),
+                                    onPressed: () {
+                                      setDialogState(() {
+                                        optionControllers.removeAt(index);
+                                      });
+                                    },
+                                  ),
+                                ]
+                              ],
+                            ),
+                          );
+                        }),
+                        if (optionControllers.length < 10) ...[
+                          TextButton.icon(
+                            onPressed: () {
+                              setDialogState(() {
+                                optionControllers.add(TextEditingController());
+                              });
+                            },
+                            icon: const Icon(Icons.add),
+                            label: const Text('Add Option'),
+                          ),
+                        ]
+                      ],
+                    ),
                   ),
                 ),
               ),
