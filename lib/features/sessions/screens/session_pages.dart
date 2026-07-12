@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_floating_bottom_bar/flutter_floating_bottom_bar.dart';
-
 import '../models/session.dart';
+import '../models/question.dart';
+import '../services/qna_service.dart';
+import '../services/poll_service.dart';
+import 'qna_tab_view.dart';
+import 'polls_tab_view.dart';
 
 class AdministratorSessionPage extends StatelessWidget {
   const AdministratorSessionPage({super.key, required this.session});
@@ -59,6 +63,386 @@ class _SessionPageTemplate extends StatefulWidget {
 class _SessionPageTemplateState extends State<_SessionPageTemplate> {
   int _index = 0;
 
+  void _showAskQuestionDialog() {
+    final textController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        final colors = Theme
+            .of(context)
+            .colorScheme;
+        final textTheme = Theme
+            .of(context)
+            .textTheme;
+
+        return AlertDialog(
+          title: Text('Ask a Question', style: textTheme.titleLarge),
+          content: SizedBox(
+            width: 450,
+            height: 180,
+            child: Form(
+              key: formKey,
+              child: TextFormField(
+                controller: textController,
+                autofocus: true,
+                maxLength: 500,
+                maxLines: null,
+                expands: true,
+                textAlignVertical: TextAlignVertical.top,
+                keyboardType: TextInputType.multiline,
+                decoration: const InputDecoration(
+                  labelText: 'Your Question',
+                  hintText: 'Type your question for the lecturer here...',
+                  border: OutlineInputBorder(),
+                  alignLabelWithHint: true,
+                ),
+                validator: (value) {
+                  if (value == null || value
+                      .trim()
+                      .isEmpty) {
+                    return 'Please enter your question';
+                  }
+                  return null;
+                },
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                if (formKey.currentState!.validate()) {
+                  final messenger = ScaffoldMessenger.of(context);
+                  final navigator = Navigator.of(context);
+                  try {
+                    await QnaService().addQuestion(
+                      widget.session.sessionID,
+                      textController.text.trim(),
+                    );
+                    navigator.pop();
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('Question submitted successfully!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  } catch (e) {
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to submit question: $e'),
+                        backgroundColor: colors.error,
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('Submit'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showAnswerDialog(Question question, {String? existingAnswer}) {
+    final textController = TextEditingController(text: existingAnswer);
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        final colors = Theme
+            .of(context)
+            .colorScheme;
+        final textTheme = Theme
+            .of(context)
+            .textTheme;
+
+        return AlertDialog(
+          title: Text(
+              existingAnswer != null ? 'Edit Answer' : 'Answer Question',
+              style: textTheme.titleLarge),
+          content: SizedBox(
+            width: 450,
+            height: 180,
+            child: Form(
+              key: formKey,
+              child: TextFormField(
+                controller: textController,
+                autofocus: true,
+                maxLength: 500,
+                maxLines: null,
+                expands: true,
+                textAlignVertical: TextAlignVertical.top,
+                keyboardType: TextInputType.multiline,
+                decoration: const InputDecoration(
+                  labelText: 'Your Answer',
+                  hintText: 'Type your answer here...',
+                  border: OutlineInputBorder(),
+                  alignLabelWithHint: true,
+                ),
+                validator: (value) {
+                  if (value == null || value
+                      .trim()
+                      .isEmpty) {
+                    return 'Please enter an answer';
+                  }
+                  return null;
+                },
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                if (formKey.currentState!.validate()) {
+                  final messenger = ScaffoldMessenger.of(context);
+                  final navigator = Navigator.of(context);
+                  try {
+                    await QnaService().submitAnswer(
+                      widget.session.sessionID,
+                      question.questionId,
+                      textController.text.trim(),
+                    );
+                    navigator.pop();
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text(existingAnswer != null
+                            ? 'Answer updated successfully!'
+                            : 'Answer submitted successfully!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  } catch (e) {
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to save answer: $e'),
+                        backgroundColor: colors.error,
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('Submit'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _confirmDeleteQuestion(Question question) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        final colors = Theme
+            .of(context)
+            .colorScheme;
+
+        return AlertDialog(
+          title: const Text('Delete Question'),
+          content: const Text(
+              'Are you sure you want to delete this question? This action cannot be undone.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: colors.error,
+                foregroundColor: colors.onError,
+              ),
+              onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                final navigator = Navigator.of(context);
+                try {
+                  await QnaService().deleteQuestion(
+                    widget.session.sessionID,
+                    question.questionId,
+                  );
+                  navigator.pop();
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text('Question deleted successfully.'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } catch (e) {
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to delete question: $e'),
+                      backgroundColor: colors.error,
+                    ),
+                  );
+                }
+              },
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showCreatePollDialog() {
+    final questionController = TextEditingController();
+    final optionControllers = [
+      TextEditingController(),
+      TextEditingController(),
+    ];
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        final colors = Theme
+            .of(context)
+            .colorScheme;
+        final textTheme = Theme
+            .of(context)
+            .textTheme;
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text('Create New Poll', style: textTheme.titleLarge),
+              content: SizedBox(
+                width: 450,
+                height: 350,
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    children: [
+                      TextFormField(
+                        controller: questionController,
+                        decoration: const InputDecoration(
+                          labelText: 'Poll Question',
+                          hintText: 'e.g. Which programming language do you prefer?',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (value) {
+                          if (value == null || value
+                              .trim()
+                              .isEmpty) {
+                            return 'Please enter a question';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: optionControllers.length,
+                          itemBuilder: (context, index) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8.0),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: TextFormField(
+                                      controller: optionControllers[index],
+                                      decoration: InputDecoration(
+                                        labelText: 'Option ${index + 1}',
+                                        border: const OutlineInputBorder(),
+                                      ),
+                                      validator: (value) {
+                                        if (value == null || value
+                                            .trim()
+                                            .isEmpty) {
+                                          return 'Please enter an option';
+                                        }
+                                        return null;
+                                      },
+                                    ),
+                                  ),
+                                  if (optionControllers.length > 2) ...[
+                                    const SizedBox(width: 8),
+                                    IconButton(
+                                      icon: Icon(Icons.delete_outline,
+                                          color: colors.error),
+                                      onPressed: () {
+                                        setDialogState(() {
+                                          optionControllers.removeAt(index);
+                                        });
+                                      },
+                                    ),
+                                  ]
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      if (optionControllers.length < 10) ...[
+                        TextButton.icon(
+                          onPressed: () {
+                            setDialogState(() {
+                              optionControllers.add(TextEditingController());
+                            });
+                          },
+                          icon: const Icon(Icons.add),
+                          label: const Text('Add Option'),
+                        ),
+                      ]
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () async {
+                    if (formKey.currentState!.validate()) {
+                      final messenger = ScaffoldMessenger.of(context);
+                      final navigator = Navigator.of(context);
+                      try {
+                        final optionTexts = optionControllers.map((c) =>
+                            c.text.trim()).toList();
+                        await PollService().createPoll(
+                          widget.session.sessionID,
+                          questionController.text.trim(),
+                          optionTexts,
+                        );
+                        navigator.pop();
+                        messenger.showSnackBar(
+                          const SnackBar(
+                            content: Text('Poll created successfully!'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      } catch (e) {
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text('Failed to create poll: $e'),
+                            backgroundColor: colors.error,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  child: const Text('Create'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
@@ -73,15 +457,15 @@ class _SessionPageTemplateState extends State<_SessionPageTemplate> {
         : null;
     final actionTooltip = showAdd ? 'Add' : 'Submit quiz';
     final tabPages = [
-      _TabPlaceholder(
-        icon: Icons.forum_outlined,
-        title: 'Q&A',
-        description: widget.tabDescriptions[0],
+      QnaTabView(
+        session: widget.session,
+        isAdministrator: widget.isAdministrator,
+        onAnswerPressed: _showAnswerDialog,
+        onDeletePressed: _confirmDeleteQuestion,
       ),
-      _TabPlaceholder(
-        icon: Icons.poll_outlined,
-        title: 'Polls',
-        description: widget.tabDescriptions[1],
+      PollsTabView(
+        session: widget.session,
+        isAdministrator: widget.isAdministrator,
       ),
       _TabPlaceholder(
         icon: Icons.quiz_outlined,
@@ -109,14 +493,20 @@ class _SessionPageTemplateState extends State<_SessionPageTemplate> {
       scrollBehavior: const BottomBarScrollBehavior(hideOnScroll: true),
       showIcon: false,
       body: Scaffold(
-        appBar: AppBar(title: Text(widget.session.title))),
-        body: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: IndexedStack(index: _index, children: tabPages),
+        body: NestedScrollView(
+          headerSliverBuilder: (context, innerBoxIsScrolled) =>
+          [
+            SliverAppBar(
+              title: Text(widget.session.title),
+              floating: true,
+              snap: true,
+              backgroundColor: Colors.transparent,
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
+              scrolledUnderElevation: 0,
             ),
           ],
+          body: IndexedStack(index: _index, children: tabPages),
         ),
       ),
       child: Padding(
@@ -151,10 +541,17 @@ class _SessionPageTemplateState extends State<_SessionPageTemplate> {
                 icon: actionIcon,
                 tooltip: actionTooltip,
                 onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                        content: Text('$actionTooltip action is coming soon.')),
-                  );
+                  if (!widget.isAdministrator && _index == 0) {
+                    _showAskQuestionDialog();
+                  } else if (widget.isAdministrator && _index == 1) {
+                    _showCreatePollDialog();
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                          content: Text(
+                              '$actionTooltip action is coming soon.')),
+                    );
+                  }
                 },
               ),
             ],
