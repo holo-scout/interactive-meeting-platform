@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class Session {
   final String sessionID;
   final String title;
@@ -43,6 +45,44 @@ class Session {
       creatorId: creatorId ?? this.creatorId,
     );
   }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'sessionID': sessionID,
+      'title': title,
+      'subtitle': subtitle,
+      'folder': folder,
+      'expiry': Timestamp.fromDate(expiry),
+      'joinCode': joinCode,
+      'isDeleted': isDeleted,
+      'creatorId': creatorId,
+    };
+  }
+
+  factory Session.fromMap(Map<String, dynamic> map) {
+    final expiryData = map['expiry'];
+    DateTime expiryDate;
+    if (expiryData is Timestamp) {
+      expiryDate = expiryData.toDate();
+    } else if (expiryData is int) {
+      expiryDate = DateTime.fromMillisecondsSinceEpoch(expiryData);
+    } else if (expiryData is String) {
+      expiryDate = DateTime.parse(expiryData);
+    } else {
+      expiryDate = DateTime.now();
+    }
+
+    return Session(
+      sessionID: map['sessionID'] ?? '',
+      title: map['title'] ?? '',
+      subtitle: map['subtitle'] ?? '',
+      folder: map['folder'] ?? '',
+      expiry: expiryDate,
+      joinCode: map['joinCode'] ?? '',
+      isDeleted: map['isDeleted'] ?? false,
+      creatorId: map['creatorId'] ?? '',
+    );
+  }
 }
 
 class SessionShortcut {
@@ -50,4 +90,18 @@ class SessionShortcut {
   final String sessionID;
 
   SessionShortcut({required this.userID, required this.sessionID});
+
+  Map<String, dynamic> toMap() {
+    return {
+      'userID': userID,
+      'sessionID': sessionID,
+    };
+  }
+
+  factory SessionShortcut.fromMap(Map<String, dynamic> map) {
+    return SessionShortcut(
+      userID: map['userID'] ?? '',
+      sessionID: map['sessionID'] ?? '',
+    );
+  }
 }

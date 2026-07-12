@@ -5,6 +5,7 @@ import '../../sessions/services/session_service.dart';
 import '../../sessions/screens/trash_screen.dart';
 import '../../sessions/screens/session_pages.dart';
 import 'package:fab_menu_expressive/fab_menu_expressive.dart';
+import 'package:flutter/services.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -143,22 +144,44 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: const Text('Cancel'),
                 ),
                 FilledButton(
-                  onPressed: () {
+                  onPressed: () async {
                     if (formKey.currentState!.validate()) {
-                      final session = _sessionService.createSession(
-                        titleController.text.trim(),
-                        subtitleController.text.trim(),
-                        selectedDuration,
-                      );
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Created Session "${session.title}" with Join Code: ${session.joinCode}',
+                      // Capture navigator and messenger BEFORE the async gap,
+                      // because the Firestore write triggers a snapshot listener
+                      // that rebuilds HomeScreen, which can unmount this context.
+                      final navigator = Navigator.of(context);
+                      final messenger = ScaffoldMessenger.of(context);
+
+                      try {
+                        final session = await _sessionService.createSession(
+                          titleController.text.trim(),
+                          subtitleController.text.trim(),
+                          selectedDuration,
+                        );
+
+                        navigator.pop();
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Created Session "${session
+                                  .title}" with Join Code: ${session.joinCode}',
+                            ),
+                            backgroundColor: Colors.green,
                           ),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
+                        );
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Failed to create session: $e'),
+                              backgroundColor: Theme
+                                  .of(context)
+                                  .colorScheme
+                                  .error,
+                            ),
+                          );
+                        }
+                      }
                     }
                   },
                   child: const Text('Create'),
@@ -210,27 +233,29 @@ class _HomeScreenState extends State<HomeScreen> {
               child: const Text('Cancel'),
             ),
             FilledButton(
-              onPressed: () {
+              onPressed: () async {
                 if (formKey.currentState!.validate()) {
-                  final error = _sessionService.joinSessionByCode(
+                  final error = await _sessionService.joinSessionByCode(
                     codeController.text,
                   );
-                  Navigator.pop(context);
+                  if (context.mounted) {
+                    Navigator.pop(context);
 
-                  if (error != null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(error),
-                        backgroundColor: colors.error,
-                      ),
-                    );
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Session shortcut added successfully!'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
+                    if (error != null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(error),
+                          backgroundColor: colors.error,
+                        ),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Session shortcut added successfully!'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    }
                   }
                 }
               },
@@ -684,6 +709,41 @@ class _HomeScreenState extends State<HomeScreen> {
                                                         color: colors.primary,
                                                       ),
                                                 ),
+                                                SizedBox(width: 5),
+                                                IconButton(
+                                                  icon: const Icon(
+                                                      Icons.content_copy),
+                                                  iconSize: 18,
+                                                  tooltip: 'Copy Join Code',
+                                                  onPressed: () async {
+                                                    await Clipboard.setData(
+                                                      ClipboardData(
+                                                          text: session
+                                                              .joinCode),
+                                                    );
+
+                                                    if (context.mounted) {
+                                                      ScaffoldMessenger.of(
+                                                          context).showSnackBar(
+                                                        const SnackBar(
+                                                          content: Text(
+                                                              'Join code copied!'),
+                                                          duration: Duration(
+                                                              seconds: 2),
+                                                        ),
+                                                      );
+                                                    }
+                                                  },
+                                                ),
+                                                IconButton(
+                                                  icon: const Icon(
+                                                      Icons.qr_code),
+                                                  iconSize: 18,
+                                                  tooltip: 'Show QR code',
+                                                  onPressed: () async {
+
+                                                  },
+                                                ),
                                                 const Spacer(),
                                                 Icon(
                                                   Icons.timer_outlined,
@@ -756,44 +816,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildFabMenuItem({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    final colors = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Card(
-          elevation: 2,
-          color: colors.surfaceContainerHigh,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            child: Text(
-              label,
-              style: textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: colors.onSurface,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        FloatingActionButton.small(
-          heroTag: label,
-          onPressed: onTap,
-          backgroundColor: colors.primaryContainer,
-          foregroundColor: colors.onPrimaryContainer,
-          child: Icon(icon),
-        ),
-      ],
     );
   }
 

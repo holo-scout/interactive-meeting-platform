@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/session.dart';
 
 class SessionService {
@@ -10,7 +12,7 @@ class SessionService {
   factory SessionService() => _instance;
 
   SessionService._internal() {
-    _populateMocks();
+    _initAuthAndFirestoreListeners();
   }
 
   final List<Session> _sessions = [];
@@ -33,53 +35,118 @@ class SessionService {
     }
   }
 
-  void _populateMocks() {
-    // A mock active session created by the current user
-    _sessions.add(
-      Session(
-        sessionID: 'sess_1',
-        title: 'Advanced Agentic Coding Lecture',
-        subtitle: 'Understanding autonomous reasoning loops and tool calling.',
-        folder: 'Lectures',
-        expiry: DateTime.now().add(const Duration(hours: 2)),
-        joinCode: 'AGENT1',
-        creatorId: 'test_user_id',
-        isDeleted: false,
-      ),
-    );
+  StreamSubscription? _authSubscription;
+  StreamSubscription? _shortcutsSubscription;
+  StreamSubscription? _createdSessionsSubscription;
+  StreamSubscription? _shortcutSessionsSubscription;
 
-    // An expired mock session created by the current user
-    _sessions.add(
-      Session(
-        sessionID: 'sess_2',
-        title: 'Intro to Dart & Flutter (Expired)',
-        subtitle: 'Building responsive layouts and working with widgets.',
-        folder: 'Seminars',
-        expiry: DateTime.now().subtract(const Duration(days: 1)),
-        joinCode: 'FLUTT2',
-        creatorId: 'test_user_id',
-        isDeleted: false,
-      ),
-    );
+  List<Session> _createdSessions = [];
+  List<Session> _shortcutSessions = [];
 
-    // A session created by a different user
-    _sessions.add(
-      Session(
-        sessionID: 'sess_3',
-        title: 'Mobile Architecture Seminar',
-        subtitle: 'Discussing Clean Architecture vs Riverpod vs Bloc.',
-        folder: 'Architecture',
-        expiry: DateTime.now().add(const Duration(hours: 5)),
-        joinCode: 'CLEAN3',
-        creatorId: 'other_user_id',
-        isDeleted: false,
-      ),
-    );
+  void _initAuthAndFirestoreListeners() {
+    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
+      final uid = user?.uid ?? 'test_user_id';
+      _setupFirestoreListeners(uid);
+    });
+  }
 
-    // Add a shortcut link for the current user to sess_3
-    _shortcuts.add(
-      SessionShortcut(userID: 'test_user_id', sessionID: 'sess_3'),
-    );
+  void _setupFirestoreListeners(String uid) {
+    // Cancel any previous subscriptions
+    _shortcutsSubscription?.cancel();
+    _createdSessionsSubscription?.cancel();
+    _shortcutSessionsSubscription?.cancel();
+
+    // Clear caches
+    _sessions.clear();
+    _shortcuts.clear();
+    _createdSessions.clear();
+    _shortcutSessions.clear();
+    _notifyListeners();
+
+    // 1. Listen to shortcuts for this user
+    _shortcutsSubscription = FirebaseFirestore.instance
+        .collection('shortcuts')
+        .where('userID', isEqualTo: uid)
+        .snapshots()
+        .listen((shortcutsSnapshot) {
+      _shortcuts.clear();
+      final List<String> shortcutSessionIds = [];
+
+      for (var doc in shortcutsSnapshot.docs) {
+        final shortcut = SessionShortcut.fromMap(doc.data());
+        _shortcuts.add(shortcut);
+        shortcutSessionIds.add(shortcut.sessionID);
+      }
+
+      _notifyListeners();
+
+      // Update the shortcut sessions subscription
+      _updateShortcutSessionsListener(shortcutSessionIds);
+    }, onError: (error) {
+      debugPrint("Error listening to shortcuts: $error");
+    });
+
+    // 2. Listen to created sessions for this user
+    _createdSessionsSubscription = FirebaseFirestore.instance
+        .collection('sessions')
+        .where('creatorId', isEqualTo: uid)
+        .snapshots()
+        .listen((sessionsSnapshot) {
+      _createdSessions = sessionsSnapshot.docs
+          .map((doc) => Session.fromMap(doc.data()))
+          .toList();
+      _mergeAndNotify();
+    }, onError: (error) {
+      debugPrint("Error listening to created sessions: $error");
+    });
+  }
+
+  void _updateShortcutSessionsListener(List<String> shortcutSessionIds) {
+    _shortcutSessionsSubscription?.cancel();
+    _shortcutSessionsSubscription = null;
+
+    if (shortcutSessionIds.isEmpty) {
+      _shortcutSessions.clear();
+      _mergeAndNotify();
+      return;
+    }
+
+    // Firestore whereIn has a limit of 30 items
+    final queryIds = shortcutSessionIds.take(30).toList();
+
+    _shortcutSessionsSubscription = FirebaseFirestore.instance
+        .collection('sessions')
+        .where(FieldPath.documentId, whereIn: queryIds)
+        .snapshots()
+        .listen((sessionsSnapshot) {
+      _shortcutSessions = sessionsSnapshot.docs
+          .map((doc) => Session.fromMap(doc.data()))
+          .toList();
+      _mergeAndNotify();
+    }, onError: (error) {
+      debugPrint("Error listening to shortcut sessions: $error");
+    });
+  }
+
+  void _mergeAndNotify() {
+    final Map<String, Session> merged = {};
+    for (var s in _createdSessions) {
+      merged[s.sessionID] = s;
+    }
+    for (var s in _shortcutSessions) {
+      merged[s.sessionID] = s;
+    }
+    _sessions.clear();
+    _sessions.addAll(merged.values);
+    _notifyListeners();
+  }
+
+  // Dispose subscriptions when service is disposed
+  void dispose() {
+    _authSubscription?.cancel();
+    _shortcutsSubscription?.cancel();
+    _createdSessionsSubscription?.cancel();
+    _shortcutSessionsSubscription?.cancel();
   }
 
   // Get all active sessions for the current user (either created by them or in their shortcuts)
@@ -111,12 +178,11 @@ class SessionService {
     return _shortcuts.any((s) => s.userID == uid && s.sessionID == sessionID);
   }
 
-  // Create a new session
-  Session createSession(
+  // Create a new session in Firestore
+  Future<Session> createSession(
     String title,
     String subtitle,
-    Duration expiryDuration,
-  ) {
+    Duration expiryDuration,) async {
     final code = _generateRandomCode();
     final newSession = Session(
       sessionID: 'sess_${DateTime.now().millisecondsSinceEpoch}',
@@ -128,86 +194,125 @@ class SessionService {
       creatorId: _currentUserId,
       isDeleted: false,
     );
-    _sessions.add(newSession);
-    _notifyListeners();
+
+    await FirebaseFirestore.instance
+        .collection('sessions')
+        .doc(newSession.sessionID)
+        .set(newSession.toMap());
+
     return newSession;
   }
 
   // Join a session via joinCode (adds to shortcuts if not the creator)
-  String? joinSessionByCode(String code) {
+  Future<String?> joinSessionByCode(String code) async {
     final cleanCode = code.trim().toUpperCase();
-
-    // Find the session
-    final sessionIndex = _sessions.indexWhere(
-      (s) => s.joinCode == cleanCode && !s.isDeleted,
-    );
-    if (sessionIndex == -1) {
-      return 'Session not found or has been deleted.';
-    }
-
-    final session = _sessions[sessionIndex];
     final uid = _currentUserId;
 
-    // A creator cannot add their own session as a shortcut
-    if (session.creatorId == uid) {
-      return 'You are the creator of this session. It is already on your dashboard!';
-    }
+    try {
+      // Find the session in Firestore
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('sessions')
+          .where('joinCode', isEqualTo: cleanCode)
+          .where('isDeleted', isEqualTo: false)
+          .limit(1)
+          .get();
 
-    // Check if shortcut already exists
-    final exists = _shortcuts.any(
-      (s) => s.userID == uid && s.sessionID == session.sessionID,
-    );
-    if (exists) {
-      return 'You have already added this session to your shortcuts.';
-    }
+      if (querySnapshot.docs.isEmpty) {
+        return 'Session not found or has been deleted.';
+      }
 
-    // Create shortcut
-    _shortcuts.add(SessionShortcut(userID: uid, sessionID: session.sessionID));
-    _notifyListeners();
-    return null; // Success
+      final sessionDoc = querySnapshot.docs.first;
+      final session = Session.fromMap(sessionDoc.data());
+
+      // A creator cannot add their own session as a shortcut
+      if (session.creatorId == uid) {
+        return 'You are the creator of this session. It is already on your dashboard!';
+      }
+
+      // Check if shortcut already exists
+      final shortcutId = '${uid}_${session.sessionID}';
+      final shortcutDoc = await FirebaseFirestore.instance
+          .collection('shortcuts')
+          .doc(shortcutId)
+          .get();
+
+      if (shortcutDoc.exists) {
+        return 'You have already added this session to your shortcuts.';
+      }
+
+      // Create shortcut
+      final shortcut = SessionShortcut(
+          userID: uid, sessionID: session.sessionID);
+      await FirebaseFirestore.instance
+          .collection('shortcuts')
+          .doc(shortcutId)
+          .set(shortcut.toMap());
+
+      return null; // Success
+    } catch (e) {
+      return 'Failed to join session: $e';
+    }
   }
 
   // Delete a session (soft-delete if creator, remove shortcut if participant)
-  void deleteSession(String sessionID) {
+  Future<void> deleteSession(String sessionID) async {
     final uid = _currentUserId;
-    final sessionIndex = _sessions.indexWhere((s) => s.sessionID == sessionID);
+    final docRef = FirebaseFirestore.instance.collection('sessions').doc(
+        sessionID);
+    final doc = await docRef.get();
 
-    if (sessionIndex != -1) {
-      final session = _sessions[sessionIndex];
+    if (doc.exists) {
+      final session = Session.fromMap(doc.data()!);
       if (session.creatorId == uid) {
         // Soft delete
-        _sessions[sessionIndex] = session.copyWith(isDeleted: true);
+        await docRef.update({'isDeleted': true});
       } else {
         // Participant deletes it -> just remove their shortcut
-        _shortcuts.removeWhere(
-          (s) => s.userID == uid && s.sessionID == sessionID,
-        );
+        final shortcutId = '${uid}_$sessionID';
+        await FirebaseFirestore.instance
+            .collection('shortcuts')
+            .doc(shortcutId)
+            .delete();
       }
-      _notifyListeners();
     }
   }
 
   // Restore a soft-deleted session (only creator can do this)
-  void restoreSession(String sessionID) {
+  Future<void> restoreSession(String sessionID) async {
     final uid = _currentUserId;
-    final sessionIndex = _sessions.indexWhere((s) => s.sessionID == sessionID);
+    final docRef = FirebaseFirestore.instance.collection('sessions').doc(
+        sessionID);
+    final doc = await docRef.get();
 
-    if (sessionIndex != -1) {
-      final session = _sessions[sessionIndex];
+    if (doc.exists) {
+      final session = Session.fromMap(doc.data()!);
       if (session.creatorId == uid) {
-        _sessions[sessionIndex] = session.copyWith(isDeleted: false);
-        _notifyListeners();
+        await docRef.update({'isDeleted': false});
       }
     }
   }
 
   // Permanently delete a session from the list (only creator can do this)
-  void permanentlyDeleteSession(String sessionID) {
+  Future<void> permanentlyDeleteSession(String sessionID) async {
     final uid = _currentUserId;
-    _sessions.removeWhere(
-      (s) => s.sessionID == sessionID && s.creatorId == uid,
-    );
-    _notifyListeners();
+    final docRef = FirebaseFirestore.instance.collection('sessions').doc(
+        sessionID);
+    final doc = await docRef.get();
+
+    if (doc.exists) {
+      final session = Session.fromMap(doc.data()!);
+      if (session.creatorId == uid) {
+        await docRef.delete();
+        // Clean up shortcuts associated with this session
+        final shortcutsQuery = await FirebaseFirestore.instance
+            .collection('shortcuts')
+            .where('sessionID', isEqualTo: sessionID)
+            .get();
+        for (var doc in shortcutsQuery.docs) {
+          await doc.reference.delete();
+        }
+      }
+    }
   }
 
   // Helper to generate a random 6-character alphanumeric code
