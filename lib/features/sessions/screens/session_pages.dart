@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_floating_bottom_bar/flutter_floating_bottom_bar.dart';
 import '../models/session.dart';
 import '../models/question.dart';
+import '../models/quiz.dart';
 import '../services/qna_service.dart';
 import '../services/poll_service.dart';
+import '../services/quiz_service.dart';
 import 'qna_tab_view.dart';
 import 'polls_tab_view.dart';
+import 'quizzes_tab_view.dart';
 
 class AdministratorSessionPage extends StatelessWidget {
   const AdministratorSessionPage({super.key, required this.session});
@@ -452,6 +455,112 @@ class _SessionPageTemplateState extends State<_SessionPageTemplate> {
     );
   }
 
+  void _showCreateQuizDialog() {
+    final titleController = TextEditingController();
+    final descriptionController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        final colors = Theme
+            .of(context)
+            .colorScheme;
+        final textTheme = Theme
+            .of(context)
+            .textTheme;
+
+        return AlertDialog(
+          title: Text('Create New Quiz', style: textTheme.titleLarge),
+          content: SizedBox(
+            width: 450,
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: titleController,
+                    decoration: const InputDecoration(
+                      labelText: 'Quiz Title',
+                      hintText: 'e.g. Midterm Quiz',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (value) {
+                      if (value == null || value
+                          .trim()
+                          .isEmpty) {
+                        return 'Please enter a quiz title';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: descriptionController,
+                    decoration: const InputDecoration(
+                      labelText: 'Description (Optional)',
+                      hintText: 'e.g. Test understanding of chapters 1-3...',
+                      border: OutlineInputBorder(),
+                    ),
+                    maxLines: 3,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                if (formKey.currentState!.validate()) {
+                  final messenger = ScaffoldMessenger.of(context);
+                  final navigator = Navigator.of(context);
+                  try {
+                    final quizId = 'quiz_${DateTime
+                        .now()
+                        .millisecondsSinceEpoch}';
+                    final newQuiz = Quiz(
+                      quizId: quizId,
+                      title: titleController.text.trim(),
+                      description: descriptionController.text.trim(),
+                      questions: [],
+                      isReleased: false,
+                      createdAt: DateTime.now(),
+                    );
+                    await QuizService().createOrUpdateQuiz(
+                      widget.session.sessionID,
+                      newQuiz,
+                    );
+                    navigator.pop();
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                            'Quiz created successfully! Click "Questions" to add questions.'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  } catch (e) {
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to create quiz: $e'),
+                        backgroundColor: colors.error,
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('Create'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
@@ -476,10 +585,9 @@ class _SessionPageTemplateState extends State<_SessionPageTemplate> {
         session: widget.session,
         isAdministrator: widget.isAdministrator,
       ),
-      _TabPlaceholder(
-        icon: Icons.quiz_outlined,
-        title: 'Quizzes',
-        description: widget.tabDescriptions[2],
+      QuizzesTabView(
+        session: widget.session,
+        isAdministrator: widget.isAdministrator,
       ),
     ];
 
@@ -554,6 +662,8 @@ class _SessionPageTemplateState extends State<_SessionPageTemplate> {
                     _showAskQuestionDialog();
                   } else if (widget.isAdministrator && _index == 1) {
                     _showCreatePollDialog();
+                  } else if (widget.isAdministrator && _index == 2) {
+                    _showCreateQuizDialog();
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -626,49 +736,4 @@ class _SessionPageTemplateState extends State<_SessionPageTemplate> {
   }
 }
 
-class _TabPlaceholder extends StatelessWidget {
-  const _TabPlaceholder({
-    required this.icon,
-    required this.title,
-    required this.description,
-  });
 
-  final IconData icon;
-  final String title;
-  final String description;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 56, color: colors.primary),
-            const SizedBox(height: 16),
-            Text(title, style: textTheme.headlineSmall),
-            const SizedBox(height: 8),
-            Text(
-              description,
-              textAlign: TextAlign.center,
-              style: textTheme.bodyLarge?.copyWith(
-                color: colors.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'This section will be added next.',
-              style: textTheme.bodySmall?.copyWith(
-                color: colors.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
