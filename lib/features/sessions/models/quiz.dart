@@ -6,6 +6,7 @@ class QuizQuestion {
   final String questionText;
   final List<String> options; // empty for open_ended
   final List<String> correctAnswers; // empty for open_ended
+  final String? correctImageBase64; // open-ended correct image reference
 
   QuizQuestion({
     required this.questionId,
@@ -13,6 +14,7 @@ class QuizQuestion {
     required this.questionText,
     required this.options,
     required this.correctAnswers,
+    this.correctImageBase64,
   });
 
   QuizQuestion copyWith({
@@ -21,6 +23,7 @@ class QuizQuestion {
     String? questionText,
     List<String>? options,
     List<String>? correctAnswers,
+    String? correctImageBase64,
   }) {
     return QuizQuestion(
       questionId: questionId ?? this.questionId,
@@ -28,6 +31,7 @@ class QuizQuestion {
       questionText: questionText ?? this.questionText,
       options: options ?? this.options,
       correctAnswers: correctAnswers ?? this.correctAnswers,
+      correctImageBase64: correctImageBase64 ?? this.correctImageBase64,
     );
   }
 
@@ -38,6 +42,7 @@ class QuizQuestion {
       'questionText': questionText,
       'options': options,
       'correctAnswers': correctAnswers,
+      'correctImageBase64': correctImageBase64,
     };
   }
 
@@ -48,6 +53,7 @@ class QuizQuestion {
       questionText: map['questionText'] ?? '',
       options: List<String>.from(map['options'] ?? []),
       correctAnswers: List<String>.from(map['correctAnswers'] ?? []),
+      correctImageBase64: map['correctImageBase64'],
     );
   }
 }

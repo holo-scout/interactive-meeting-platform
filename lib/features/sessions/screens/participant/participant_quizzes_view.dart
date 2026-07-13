@@ -688,6 +688,39 @@ class _QuizResultsView extends StatelessWidget {
                           ),
                         ),
                       ],
+                      if (question.correctAnswers.isNotEmpty &&
+                          question.correctAnswers.first.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          'Suggested Correct Answer Reference:',
+                          style: textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colors.primary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          question.correctAnswers.first,
+                          style: textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colors.primary,
+                          ),
+                        ),
+                      ],
+                      if (question.correctImageBase64 != null) ...[
+                        const SizedBox(height: 12),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            constraints: const BoxConstraints(maxHeight: 200),
+                            width: double.infinity,
+                            child: Image.memory(
+                              base64Decode(question.correctImageBase64!),
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ],
                 ),

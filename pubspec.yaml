@@ -20,6 +20,7 @@ dependencies:
   fab_menu_expressive: ^0.6.0
   flutter_floating_bottom_bar: ^2.0.2
   image_picker: ^1.2.3
+  file_picker: ^8.1.2
 
 dev_dependencies:
   flutter_test:
