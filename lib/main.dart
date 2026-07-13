@@ -26,7 +26,28 @@ class MyApp extends StatelessWidget {
       title: 'Quest',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF5939A4)),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF5939A4),
+        ).copyWith(
+          surface: Colors.white,
+          // ignore: deprecated_member_use
+          background: Colors.white,
+          surfaceContainerLowest: Colors.white,
+          surfaceContainerLow: Colors.white,
+          surfaceContainer: Colors.white,
+          surfaceContainerHigh: Colors.grey.shade50,
+          surfaceContainerHighest: Colors.grey.shade100,
+        ),
+        scaffoldBackgroundColor: Colors.white,
+        cardTheme: const CardThemeData(
+          color: Colors.white,
+          surfaceTintColor: Colors.transparent,
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+        ),
         useMaterial3: true,
       ),
       home: const AuthGate(),

@@ -1,28 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../models/session.dart';
-import '../models/question.dart';
-import '../services/qna_service.dart';
+import '../../models/session.dart';
+import '../../models/question.dart';
+import '../../services/qna_service.dart';
 
-class QnaTabView extends StatefulWidget {
-  const QnaTabView({
+class AdminQnaView extends StatefulWidget {
+  const AdminQnaView({
     super.key,
     required this.session,
-    required this.isAdministrator,
     required this.onAnswerPressed,
     required this.onDeletePressed,
   });
 
   final Session session;
-  final bool isAdministrator;
   final Function(Question question, {String? existingAnswer}) onAnswerPressed;
   final Function(Question question) onDeletePressed;
 
   @override
-  State<QnaTabView> createState() => _QAndATabViewState();
+  State<AdminQnaView> createState() => _AdminQnaViewState();
 }
 
-class _QAndATabViewState extends State<QnaTabView> {
+class _AdminQnaViewState extends State<AdminQnaView> {
   String _sortBy = 'votes'; // 'votes' or 'recent'
 
   String _formatTimestamp(DateTime dt) {
@@ -75,9 +73,7 @@ class _QAndATabViewState extends State<QnaTabView> {
                   Text('Q&A', style: textTheme.headlineSmall),
                   const SizedBox(height: 8),
                   Text(
-                    widget.isAdministrator
-                        ? 'Review and manage questions from participants.'
-                        : 'Ask questions and browse the session discussion.',
+                    'Review and manage questions from participants.',
                     textAlign: TextAlign.center,
                     style: textTheme.bodyLarge?.copyWith(
                       color: colors.onSurfaceVariant,
@@ -85,9 +81,7 @@ class _QAndATabViewState extends State<QnaTabView> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    widget.isAdministrator
-                        ? 'No questions have been asked yet.'
-                        : 'Click the "+" button in the bar below to ask a question.',
+                    'No questions have been asked yet.',
                     textAlign: TextAlign.center,
                     style: textTheme.bodySmall?.copyWith(
                       color: colors.onSurfaceVariant,
@@ -297,43 +291,37 @@ class _QAndATabViewState extends State<QnaTabView> {
                                 ),
                               ),
                               const Spacer(),
-                              if (widget.isAdministrator) ...[
-                                OutlinedButton.icon(
-                                  onPressed: () =>
-                                      widget.onDeletePressed(question),
-                                  icon: const Icon(
-                                    Icons.delete_outline,
-                                    size: 18,
-                                  ),
-                                  label: const Text('Delete'),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: colors.error,
-                                    side: BorderSide(
-                                      color: colors.error.withValues(
-                                        alpha: 0.5,
-                                      ),
-                                    ),
+                              OutlinedButton.icon(
+                                onPressed: () =>
+                                    widget.onDeletePressed(question),
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  size: 18,
+                                ),
+                                label: const Text('Delete'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: colors.error,
+                                  side: BorderSide(
+                                    color: colors.error.withValues(alpha: 0.5),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                FilledButton.icon(
-                                  onPressed: () => widget.onAnswerPressed(
-                                    question,
-                                    existingAnswer: question.answer,
-                                  ),
-                                  icon: Icon(
-                                    hasAnswer
-                                        ? Icons.edit_outlined
-                                        : Icons.reply,
-                                    size: 18,
-                                  ),
-                                  label: Text(hasAnswer ? 'Edit' : 'Answer'),
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: colors.primary,
-                                    foregroundColor: colors.onPrimary,
-                                  ),
+                              ),
+                              const SizedBox(width: 8),
+                              FilledButton.icon(
+                                onPressed: () => widget.onAnswerPressed(
+                                  question,
+                                  existingAnswer: question.answer,
                                 ),
-                              ],
+                                icon: Icon(
+                                  hasAnswer ? Icons.edit_outlined : Icons.reply,
+                                  size: 18,
+                                ),
+                                label: Text(hasAnswer ? 'Edit' : 'Answer'),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: colors.primary,
+                                  foregroundColor: colors.onPrimary,
+                                ),
+                              ),
                             ],
                           ),
                           if (hasAnswer) ...[

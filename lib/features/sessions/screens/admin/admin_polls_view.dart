@@ -1,25 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import '../models/session.dart';
-import '../models/poll.dart';
-import '../services/poll_service.dart';
+import '../../models/session.dart';
+import '../../models/poll.dart';
+import '../../services/poll_service.dart';
 
-class PollsTabView extends StatefulWidget {
-  const PollsTabView({
-    super.key,
-    required this.session,
-    required this.isAdministrator,
-  });
+class AdminPollsView extends StatefulWidget {
+  const AdminPollsView({super.key, required this.session});
 
   final Session session;
-  final bool isAdministrator;
 
   @override
-  State<PollsTabView> createState() => _PollsTabViewState();
+  State<AdminPollsView> createState() => _AdminPollsViewState();
 }
 
-class _PollsTabViewState extends State<PollsTabView> {
-  // Confirmation delete dialog
+class _AdminPollsViewState extends State<AdminPollsView> {
   void _confirmDeletePoll(Poll poll) {
     showDialog(
       context: context,
@@ -73,7 +66,6 @@ class _PollsTabViewState extends State<PollsTabView> {
     );
   }
 
-  // Edit dialog with reorderable list of options
   void _showEditPollDialog(Poll poll) {
     final questionController = TextEditingController(text: poll.question);
     final List<PollOption> tempOptions = List.from(poll.options);
@@ -150,8 +142,6 @@ class _PollsTabViewState extends State<PollsTabView> {
                               padding: const EdgeInsets.only(bottom: 8.0),
                               child: Row(
                                 children: [
-                                  // Drag handle (ReorderableListView builder supplies standard gesture,
-                                  // we add a visual drag icon)
                                   Icon(
                                     Icons.drag_indicator,
                                     color: colors.onSurfaceVariant,
@@ -269,7 +259,6 @@ class _PollsTabViewState extends State<PollsTabView> {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final currentUserId = FirebaseAuth.instance.currentUser?.uid ?? '';
 
     return StreamBuilder<List<Poll>>(
       stream: PollService().streamPolls(widget.session.sessionID),
@@ -301,9 +290,7 @@ class _PollsTabViewState extends State<PollsTabView> {
                   Text('Polls', style: textTheme.headlineSmall),
                   const SizedBox(height: 8),
                   Text(
-                    widget.isAdministrator
-                        ? 'Create and manage live polls for this session.'
-                        : 'View and answer polls shared by the administrator.',
+                    'Create and manage live polls for this session.',
                     textAlign: TextAlign.center,
                     style: textTheme.bodyLarge?.copyWith(
                       color: colors.onSurfaceVariant,
@@ -311,9 +298,7 @@ class _PollsTabViewState extends State<PollsTabView> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    widget.isAdministrator
-                        ? 'Click the "+" button in the bar below to create a poll.'
-                        : 'No polls have been launched in this session yet.',
+                    'Click the "+" button in the bar below to create a poll.',
                     textAlign: TextAlign.center,
                     style: textTheme.bodySmall?.copyWith(
                       color: colors.onSurfaceVariant,
@@ -330,8 +315,6 @@ class _PollsTabViewState extends State<PollsTabView> {
           itemCount: polls.length,
           itemBuilder: (context, index) {
             final poll = polls[index];
-
-            // Calculate total unique votes
             final totalUniqueVoters = poll.options
                 .expand((o) => o.voterIds)
                 .toSet()
@@ -352,7 +335,6 @@ class _PollsTabViewState extends State<PollsTabView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Question
                     Text(
                       poll.question,
                       style: textTheme.titleLarge?.copyWith(
@@ -368,12 +350,8 @@ class _PollsTabViewState extends State<PollsTabView> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    // Options
                     Column(
                       children: poll.options.map((option) {
-                        final hasVoted = option.voterIds.contains(
-                          currentUserId,
-                        );
                         final voteCount = option.voterIds.length;
                         final percent = totalUniqueVoters > 0
                             ? voteCount / totalUniqueVoters
@@ -385,110 +363,82 @@ class _PollsTabViewState extends State<PollsTabView> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                             side: BorderSide(
-                              color: hasVoted
-                                  ? colors.primary
-                                  : colors.outlineVariant.withValues(
-                                      alpha: 0.4,
-                                    ),
-                              width: hasVoted ? 2 : 1,
+                              color: colors.outlineVariant.withValues(
+                                alpha: 0.4,
+                              ),
                             ),
                           ),
-                          color: hasVoted
-                              ? colors.primaryContainer.withValues(alpha: 0.1)
-                              : colors.surfaceContainerLowest,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(12),
-                            onTap: widget.isAdministrator
-                                ? null // Admins cannot vote
-                                : () => PollService().toggleVote(
-                                    widget.session.sessionID,
-                                    poll.pollId,
-                                    option.optionId,
-                                  ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          option.text,
-                                          style: textTheme.bodyLarge?.copyWith(
-                                            fontWeight: hasVoted
-                                                ? FontWeight.bold
-                                                : FontWeight.normal,
-                                            color: colors.onSurface,
-                                          ),
+                          color: colors.surfaceContainerLowest,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        option.text,
+                                        style: textTheme.bodyLarge?.copyWith(
+                                          color: colors.onSurface,
                                         ),
                                       ),
-                                      Text(
-                                        '$voteCount vote${voteCount == 1 ? "" : "s"} (${(percent * 100).toStringAsFixed(0)}%)',
-                                        style: textTheme.bodySmall?.copyWith(
-                                          fontWeight: hasVoted
-                                              ? FontWeight.bold
-                                              : FontWeight.normal,
-                                          color: hasVoted
-                                              ? colors.primary
-                                              : colors.onSurfaceVariant,
-                                        ),
+                                    ),
+                                    Text(
+                                      '$voteCount vote${voteCount == 1 ? "" : "s"} (${(percent * 100).toStringAsFixed(0)}%)',
+                                      style: textTheme.bodySmall?.copyWith(
+                                        color: colors.onSurfaceVariant,
                                       ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(4),
-                                    child: LinearProgressIndicator(
-                                      value: percent,
-                                      minHeight: 6,
-                                      backgroundColor: colors.surfaceContainer,
-                                      color: hasVoted
-                                          ? colors.primary
-                                          : colors.primary.withValues(
-                                              alpha: 0.5,
-                                            ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: LinearProgressIndicator(
+                                    value: percent,
+                                    minHeight: 6,
+                                    backgroundColor: colors.surfaceContainer,
+                                    color: colors.primary.withValues(
+                                      alpha: 0.5,
                                     ),
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
                         );
                       }).toList(),
                     ),
-                    // Action Buttons for Administrator
-                    if (widget.isAdministrator) ...[
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          OutlinedButton.icon(
-                            onPressed: () => _confirmDeletePoll(poll),
-                            icon: const Icon(Icons.delete_outline, size: 18),
-                            label: const Text('Delete'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: colors.error,
-                              side: BorderSide(
-                                color: colors.error.withValues(alpha: 0.5),
-                              ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: () => _confirmDeletePoll(poll),
+                          icon: const Icon(Icons.delete_outline, size: 18),
+                          label: const Text('Delete'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: colors.error,
+                            side: BorderSide(
+                              color: colors.error.withValues(alpha: 0.5),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          FilledButton.icon(
-                            onPressed: () => _showEditPollDialog(poll),
-                            icon: const Icon(Icons.edit_outlined, size: 18),
-                            label: const Text('Edit'),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: colors.primary,
-                              foregroundColor: colors.onPrimary,
-                            ),
+                        ),
+                        const SizedBox(width: 8),
+                        FilledButton.icon(
+                          onPressed: () => _showEditPollDialog(poll),
+                          icon: const Icon(Icons.edit_outlined, size: 18),
+                          label: const Text('Edit'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: colors.primary,
+                            foregroundColor: colors.onPrimary,
                           ),
-                        ],
-                      ),
-                    ],
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),

@@ -6,9 +6,12 @@ import '../models/quiz.dart';
 import '../services/qna_service.dart';
 import '../services/poll_service.dart';
 import '../services/quiz_service.dart';
-import 'qna_tab_view.dart';
-import 'polls_tab_view.dart';
-import 'quizzes_tab_view.dart';
+import 'admin/admin_qna_view.dart';
+import 'admin/admin_polls_view.dart';
+import 'admin/admin_quizzes_view.dart';
+import 'participant/participant_qna_view.dart';
+import 'participant/participant_polls_view.dart';
+import 'participant/participant_quizzes_view.dart';
 
 class AdministratorSessionPage extends StatelessWidget {
   const AdministratorSessionPage({super.key, required this.session});
@@ -574,20 +577,29 @@ class _SessionPageTemplateState extends State<_SessionPageTemplate> {
         ? Icons.send_rounded
         : null;
     final actionTooltip = showAdd ? 'Add' : 'Submit quiz';
-    final tabPages = [
-      QnaTabView(
+    final tabPages = widget.isAdministrator
+        ? [
+      AdminQnaView(
         session: widget.session,
-        isAdministrator: widget.isAdministrator,
         onAnswerPressed: _showAnswerDialog,
         onDeletePressed: _confirmDeleteQuestion,
       ),
-      PollsTabView(
+      AdminPollsView(
         session: widget.session,
-        isAdministrator: widget.isAdministrator,
       ),
-      QuizzesTabView(
+      AdminQuizzesView(
         session: widget.session,
-        isAdministrator: widget.isAdministrator,
+      ),
+    ]
+        : [
+      ParticipantQnaView(
+        session: widget.session,
+      ),
+      ParticipantPollsView(
+        session: widget.session,
+      ),
+      ParticipantQuizzesView(
+        session: widget.session,
       ),
     ];
 
@@ -600,6 +612,14 @@ class _SessionPageTemplateState extends State<_SessionPageTemplate> {
         barDecoration: BoxDecoration(
           color: colors.surfaceContainer,
           borderRadius: BorderRadius.circular(50),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 16,
+              spreadRadius: 2,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
       ),
       motion: const BottomBarMotion.cupertino(
