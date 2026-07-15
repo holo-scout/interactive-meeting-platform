@@ -39,9 +39,11 @@ class SessionService {
   StreamSubscription? _shortcutsSubscription;
   StreamSubscription? _createdSessionsSubscription;
   StreamSubscription? _shortcutSessionsSubscription;
+  StreamSubscription? _favoritesSubscription;
 
   List<Session> _createdSessions = [];
   List<Session> _shortcutSessions = [];
+  final List<String> _favoriteSessionIds = [];
 
   void _initAuthAndFirestoreListeners() {
     _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
@@ -55,12 +57,14 @@ class SessionService {
     _shortcutsSubscription?.cancel();
     _createdSessionsSubscription?.cancel();
     _shortcutSessionsSubscription?.cancel();
+    _favoritesSubscription?.cancel();
 
     // Clear caches
     _sessions.clear();
     _shortcuts.clear();
     _createdSessions.clear();
     _shortcutSessions.clear();
+    _favoriteSessionIds.clear();
     _notifyListeners();
 
     // 1. Listen to shortcuts for this user
@@ -98,6 +102,24 @@ class SessionService {
       _mergeAndNotify();
     }, onError: (error) {
       debugPrint("Error listening to created sessions: $error");
+    });
+
+    // 3. Listen to favorites for this user
+    _favoritesSubscription = FirebaseFirestore.instance
+        .collection('favorites')
+        .where('userID', isEqualTo: uid)
+        .snapshots()
+        .listen((favoritesSnapshot) {
+      _favoriteSessionIds.clear();
+      for (var doc in favoritesSnapshot.docs) {
+        final sessionID = doc.data()['sessionID'] as String?;
+        if (sessionID != null) {
+          _favoriteSessionIds.add(sessionID);
+        }
+      }
+      _notifyListeners();
+    }, onError: (error) {
+      debugPrint("Error listening to favorites: $error");
     });
   }
 
@@ -147,6 +169,7 @@ class SessionService {
     _shortcutsSubscription?.cancel();
     _createdSessionsSubscription?.cancel();
     _shortcutSessionsSubscription?.cancel();
+    _favoritesSubscription?.cancel();
   }
 
   // Get all active sessions for the current user (either created by them or in their shortcuts)
@@ -176,6 +199,37 @@ class SessionService {
   bool isSessionShortcut(String sessionID) {
     final uid = _currentUserId;
     return _shortcuts.any((s) => s.userID == uid && s.sessionID == sessionID);
+  }
+
+  // Check if a session is favorited by the current user
+  bool isSessionFavorite(String sessionID) {
+    return _favoriteSessionIds.contains(sessionID);
+  }
+
+  // Toggle favorite status in Firestore
+  Future<void> toggleFavorite(String sessionID) async {
+    final uid = _currentUserId;
+    final favId = '${uid}_$sessionID';
+    final docRef = FirebaseFirestore.instance.collection('favorites').doc(
+        favId);
+    final doc = await docRef.get();
+
+    if (doc.exists) {
+      await docRef.delete();
+    } else {
+      await docRef.set({
+        'userID': uid,
+        'sessionID': sessionID,
+      });
+    }
+  }
+
+  // Get all active sessions that are favorited
+  List<Session> getFavoriteSessions() {
+    final active = getActiveSessions();
+    return active
+        .where((s) => _favoriteSessionIds.contains(s.sessionID))
+        .toList();
   }
 
   // Create a new session in Firestore
