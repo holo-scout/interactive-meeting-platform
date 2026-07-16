@@ -7,6 +7,9 @@ import 'package:fab_menu_expressive/fab_menu_expressive.dart';
 import 'package:flutter/services.dart';
 import 'favorites_page.dart';
 import 'trash_page.dart';
+import 'folders_page.dart';
+import 'folder_details_page.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -18,7 +21,10 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final _authService = AuthService();
   final _sessionService = SessionService();
-  String _selectedFilter = 'All'; // 'All', 'Created', 'Shortcuts'
+  final SearchController _searchController = SearchController();
+  bool _wasSearchOpen = false;
+  String? _selectedPrimary;
+  String? _selectedSecondary;
   bool _isFabExpanded = false;
   int _currentIndex = 0;
 
@@ -26,12 +32,24 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _sessionService.addListener(_updateState);
+    _searchController.addListener(_onSearchControllerChanged);
   }
 
   @override
   void dispose() {
     _sessionService.removeListener(_updateState);
+    _searchController.removeListener(_onSearchControllerChanged);
+    _searchController.dispose();
     super.dispose();
+  }
+
+  void _onSearchControllerChanged() {
+    final isOpen = _searchController.isOpen;
+    if (_wasSearchOpen && !isOpen) {
+      _searchController.clear();
+      FocusManager.instance.primaryFocus?.unfocus();
+    }
+    _wasSearchOpen = isOpen;
   }
 
   void _updateState() {
@@ -252,12 +270,13 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _openSession({required Session session, required bool isParticipant}) {
+  Future<void> _openSession(
+      {required Session session, required bool isParticipant}) {
     final page = isParticipant
         ? ParticipantSessionPage(session: session)
         : AdministratorSessionPage(session: session);
 
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+    return Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
   }
 
   List<Widget> _buildAppBarActions(ColorScheme colors) {
@@ -367,8 +386,251 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _showRestoreConfirmDialog(Session session) {
+    showDialog(
+      context: context,
+      builder: (context) =>
+          AlertDialog(
+            title: const Text('Restore Session?'),
+            content: Text(
+                'Do you want to restore the session "${session.title}"?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  _sessionService.restoreSession(session.sessionID);
+                  Navigator.pop(context);
+                  _searchController.clear();
+                  FocusManager.instance.primaryFocus?.unfocus();
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    SnackBar(content: Text('Restored "${session.title}"')),
+                  );
+                },
+                child: const Text('Restore'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  Iterable<Widget> _getSearchSuggestions(SearchController controller) {
+    final query = controller.text.toLowerCase();
+    final List<Widget> suggestions = [];
+
+    final activeSessions = _sessionService.getActiveSessions();
+    final favoriteSessions = _sessionService.getFavoriteSessions();
+    final trashedSessions = _sessionService.getTrashedSessions();
+    final folders = _sessionService.getFolders();
+
+    // 1. Folders suggestions
+    final matchingFolders = folders
+        .where((f) => f.name.toLowerCase().contains(query))
+        .toList();
+    if (matchingFolders.isNotEmpty) {
+      suggestions.add(const Padding(
+        padding: EdgeInsets.only(left: 16.0, top: 12.0, bottom: 4.0),
+        child: Text('Folders',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+      ));
+      suggestions.addAll(matchingFolders.map((folder) =>
+          ListTile(
+            leading: const Icon(Icons.folder_outlined),
+            title: Text(folder.name),
+            onTap: () {
+              controller.closeView(folder.name);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => FolderDetailsPage(folder: folder),
+                ),
+              ).then((_) {
+                _searchController.clear();
+                FocusManager.instance.primaryFocus?.unfocus();
+              });
+            },
+          )));
+    }
+
+    // 2. Favorites suggestions
+    final matchingFavorites = favoriteSessions
+        .where((s) =>
+    s.title.toLowerCase().contains(query) ||
+        s.subtitle.toLowerCase().contains(query))
+        .toList();
+    if (matchingFavorites.isNotEmpty) {
+      suggestions.add(const Padding(
+        padding: EdgeInsets.only(left: 16.0, top: 12.0, bottom: 4.0),
+        child: Text('Favorites',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+      ));
+      suggestions.addAll(matchingFavorites.map((session) =>
+          ListTile(
+            leading: const Icon(Icons.favorite, color: Colors.redAccent),
+            title: Text(session.title),
+            subtitle: Text(session.subtitle.isNotEmpty
+                ? session.subtitle
+                : 'Active Favorite Session'),
+            onTap: () {
+              controller.closeView(session.title);
+              final isShortcut = _sessionService.isSessionShortcut(
+                  session.sessionID);
+              _openSession(session: session, isParticipant: isShortcut).then((
+                  _) {
+                _searchController.clear();
+                FocusManager.instance.primaryFocus?.unfocus();
+              });
+            },
+          )));
+    }
+
+    // 3. Active Sessions suggestions
+    final favoriteIds = favoriteSessions.map((s) => s.sessionID).toSet();
+    final matchingSessions = activeSessions
+        .where((s) => !favoriteIds.contains(s.sessionID))
+        .where((s) =>
+    s.title.toLowerCase().contains(query) ||
+        s.subtitle.toLowerCase().contains(query))
+        .toList();
+    if (matchingSessions.isNotEmpty) {
+      suggestions.add(const Padding(
+        padding: EdgeInsets.only(left: 16.0, top: 12.0, bottom: 4.0),
+        child: Text('Sessions',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+      ));
+      suggestions.addAll(matchingSessions.map((session) =>
+          ListTile(
+            leading: const Icon(Icons.layers_outlined),
+            title: Text(session.title),
+            subtitle: Text(session.subtitle.isNotEmpty
+                ? session.subtitle
+                : 'Active Session'),
+            onTap: () {
+              controller.closeView(session.title);
+              final isShortcut = _sessionService.isSessionShortcut(
+                  session.sessionID);
+              _openSession(session: session, isParticipant: isShortcut).then((
+                  _) {
+                _searchController.clear();
+                FocusManager.instance.primaryFocus?.unfocus();
+              });
+            },
+          )));
+    }
+
+    // 4. Trashed Sessions suggestions
+    final matchingTrashed = trashedSessions
+        .where((s) =>
+    s.title.toLowerCase().contains(query) ||
+        s.subtitle.toLowerCase().contains(query))
+        .toList();
+    if (matchingTrashed.isNotEmpty) {
+      suggestions.add(const Padding(
+        padding: EdgeInsets.only(left: 16.0, top: 12.0, bottom: 4.0),
+        child: Text('Deleted Sessions',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+      ));
+      suggestions.addAll(matchingTrashed.map((session) =>
+          ListTile(
+            leading: const Icon(Icons.delete_outline, color: Colors.grey),
+            title: Text(
+              session.title,
+              style: const TextStyle(decoration: TextDecoration.lineThrough),
+            ),
+            subtitle: const Text('Restore from Trash'),
+            trailing: const Icon(Icons.restore_rounded),
+            onTap: () {
+              controller.closeView(session.title);
+              _showRestoreConfirmDialog(session);
+            },
+          )));
+    }
+
+    if (suggestions.isEmpty) {
+      suggestions.add(const Padding(
+        padding: EdgeInsets.all(24.0),
+        child: Center(
+          child: Text('No matching items found.'),
+        ),
+      ));
+    }
+
+    return suggestions;
+  }
+
+  void _showMoveToFolderDialog(Session session) {
+    final colors = Theme
+        .of(context)
+        .colorScheme;
+    final textTheme = Theme
+        .of(context)
+        .textTheme;
+    final folders = _sessionService.getFolders();
+
+    showDialog(
+      context: context,
+      builder: (context) =>
+          AlertDialog(
+            title: Text('Move to Folder', style: textTheme.titleLarge),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.folder_open),
+                    title: const Text('Default'),
+                    trailing: session.folder == 'Default' ||
+                        session.folder.isEmpty
+                        ? Icon(Icons.check, color: colors.primary)
+                        : null,
+                    onTap: () {
+                      _sessionService.updateSessionFolder(
+                          session.sessionID, 'Default');
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(this.context).showSnackBar(
+                        const SnackBar(
+                            content: Text('Session moved to Default.')),
+                      );
+                    },
+                  ),
+                  const Divider(),
+                  ...folders.map((folder) =>
+                      ListTile(
+                        leading: const Icon(Icons.folder),
+                        title: Text(folder.name),
+                        trailing: session.folder == folder.name
+                            ? Icon(Icons.check, color: colors.primary)
+                            : null,
+                        onTap: () {
+                          _sessionService.updateSessionFolder(
+                              session.sessionID, folder.name);
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(this.context).showSnackBar(
+                            SnackBar(content: Text('Session moved to "${folder
+                                .name}".')),
+                          );
+                        },
+                      )),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+            ],
+          ),
+    );
+  }
+
   Widget _buildHomeBody(ColorScheme colors, TextTheme textTheme,
       List<Session> filteredSessions) {
+    final folders = _sessionService.getFolders();
+
     return SingleChildScrollView(
       child: Center(
         child: ConstrainedBox(
@@ -381,6 +643,104 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                SearchAnchor(
+                  searchController: _searchController,
+                  builder: (BuildContext context, SearchController controller) {
+                    return SearchBar(
+                      controller: controller,
+                      elevation: const WidgetStatePropertyAll<double>(0.0),
+                      backgroundColor: WidgetStatePropertyAll<Color>(
+                        colors.surfaceContainerHigh,
+                      ),
+                      padding: const WidgetStatePropertyAll<EdgeInsets>(
+                        EdgeInsets.symmetric(horizontal: 16.0),
+                      ),
+                      onTap: () {
+                        controller.openView();
+                      },
+                      onChanged: (_) {
+                        controller.openView();
+                      },
+                      leading: const Icon(Icons.search),
+                      trailing: <Widget>[
+                        if (controller.text.isNotEmpty)
+                          IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              controller.clear();
+                            },
+                          ),
+                      ],
+                      hintText: 'Search sessions, folders, favorites...',
+                    );
+                  },
+                  suggestionsBuilder: (BuildContext context,
+                      SearchController controller) {
+                    return _getSearchSuggestions(controller);
+                  },
+                ),
+                const SizedBox(height: 24),
+                // Folders Grid Section
+                if (folders.isNotEmpty) ...[
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                      childAspectRatio: 3.5,
+                    ),
+                    itemCount: folders.length > 4 ? 4 : folders.length,
+                    itemBuilder: (context, index) {
+                      final folder = folders[index];
+                      return OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  FolderDetailsPage(folder: folder),
+                            ),
+                          );
+                        },
+                        icon: Icon(
+                          Icons.folder,
+                          color: colors.onSurfaceVariant,
+                        ),
+                        label: Text(
+                          folder.name,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          shape: const StadiumBorder(),
+                          side: BorderSide(
+                            color: colors.outlineVariant.withValues(alpha: 0.5),
+                          ),
+                          foregroundColor: colors.onSurface,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                // More Folders text button
+                Center(
+                  child: TextButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (
+                            context) => const FoldersPage()),
+                      );
+                    },
+                    icon: const Icon(Icons.chevron_right_rounded),
+                    label: const Text('More folders'),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
                 // List Header & Tabs
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -400,13 +760,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
-                    children: [
-                      _buildFilterChip('All'),
-                      const SizedBox(width: 8),
-                      _buildFilterChip('Created'),
-                      const SizedBox(width: 8),
-                      _buildFilterChip('Shortcuts'),
-                    ],
+                    children: _buildSortFilterChips(colors),
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -436,7 +790,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          _selectedFilter == 'Shortcuts'
+                          (_selectedPrimary == 'Ownership' &&
+                              _selectedSecondary == 'Shortcuts')
                               ? 'Join a session to add it as a shortcut.'
                               : 'Create a session or join one to get started.',
                           style: textTheme.bodySmall?.copyWith(
@@ -486,6 +841,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         );
                       },
+                      onMoveToFolder: () => _showMoveToFolderDialog(session),
                     );
                   },
                 ),
@@ -513,56 +869,115 @@ class _HomeScreenState extends State<HomeScreen> {
     // Retrieve active sessions
     final allActiveSessions = _sessionService.getActiveSessions();
 
-    // Filter sessions based on selected category tab
-    final filteredSessions = allActiveSessions.where((session) {
-      final isShortcut = _sessionService.isSessionShortcut(session.sessionID);
+    // Apply sorting & filtering based on primary and secondary chips
+    var filteredSessions = List<Session>.from(allActiveSessions);
 
-      if (_selectedFilter == 'Created') {
-        return !isShortcut;
-      } else if (_selectedFilter == 'Shortcuts') {
-        return isShortcut;
+    if (_selectedPrimary == 'Ownership') {
+      if (_selectedSecondary == 'Created') {
+        filteredSessions = allActiveSessions.where((session) {
+          return !_sessionService.isSessionShortcut(session.sessionID);
+        }).toList();
+      } else if (_selectedSecondary == 'Shortcuts') {
+        filteredSessions = allActiveSessions.where((session) {
+          return _sessionService.isSessionShortcut(session.sessionID);
+        }).toList();
+      }
+    }
+
+    if (_selectedPrimary == 'Name') {
+      if (_selectedSecondary == 'Z-A') {
+        filteredSessions.sort((a, b) =>
+            b.title.toLowerCase().compareTo(a.title.toLowerCase()));
+      } else {
+        filteredSessions.sort((a, b) =>
+            a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+      }
+    } else if (_selectedPrimary == 'Date') {
+      int getCreationTime(Session session) {
+        final id = session.sessionID;
+        if (id.startsWith('sess_')) {
+          final timeStr = id.substring(5);
+          final time = int.tryParse(timeStr);
+          if (time != null) return time;
+        }
+        return 0;
       }
 
-      return true; // 'All'
-    }).toList();
+      if (_selectedSecondary == 'Oldest') {
+        filteredSessions.sort((a, b) =>
+            getCreationTime(a).compareTo(getCreationTime(b)));
+      } else {
+        filteredSessions.sort((a, b) =>
+            getCreationTime(b).compareTo(getCreationTime(a)));
+      }
+    }
+
+
 
     return Scaffold(
       backgroundColor: colors.surface,
-      appBar: _buildAppBar(colors, textTheme, displayName),
-      body: SafeArea(
-        child: IndexedStack(
-          index: _currentIndex,
-          children: [
-            _buildHomeBody(colors, textTheme, filteredSessions),
-            const FavoritesPage(),
-            const TrashPage(),
-          ],
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: AbsorbPointer(
+          absorbing: _isFabExpanded,
+          child: _buildAppBar(colors, textTheme, displayName),
         ),
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
+      body: Stack(
+        children: [
+          SafeArea(
+            child: IndexedStack(
+              index: _currentIndex,
+              children: [
+                _buildHomeBody(colors, textTheme, filteredSessions),
+                const FavoritesPage(),
+                const TrashPage(),
+              ],
+            ),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.favorite_outline),
-            selectedIcon: Icon(Icons.favorite),
-            label: 'Favorites',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.delete_outline),
-            selectedIcon: Icon(Icons.delete),
-            label: 'Trash',
-          ),
+          if (_isFabExpanded)
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _isFabExpanded = false;
+                  });
+                },
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  color: Colors.transparent,
+                ),
+              ),
+            ),
         ],
+      ),
+      bottomNavigationBar: AbsorbPointer(
+        absorbing: _isFabExpanded,
+        child: NavigationBar(
+          selectedIndex: _currentIndex,
+          onDestinationSelected: (index) {
+            setState(() {
+              _currentIndex = index;
+            });
+          },
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home),
+              label: 'Home',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.favorite_outline),
+              selectedIcon: Icon(Icons.favorite),
+              label: 'Favorites',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.delete_outline),
+              selectedIcon: Icon(Icons.delete),
+              label: 'Trash',
+            ),
+          ],
+        ),
       ),
       floatingActionButton: _currentIndex == 0
           ? FloatingActionButtonMenu(
@@ -602,22 +1017,67 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildFilterChip(String filterName) {
-    final colors = Theme
-        .of(context)
-        .colorScheme;
-    final isSelected = _selectedFilter == filterName;
+  List<Widget> _buildSortFilterChips(ColorScheme colors) {
+    final List<Widget> chips = [];
 
+    if (_selectedPrimary == null) {
+      chips.add(_buildPrimaryChip('Name', colors));
+      chips.add(const SizedBox(width: 8));
+      chips.add(_buildPrimaryChip('Date', colors));
+      chips.add(const SizedBox(width: 8));
+      chips.add(_buildPrimaryChip('Ownership', colors));
+    } else {
+      chips.add(_buildPrimaryChip(_selectedPrimary!, colors));
+      chips.add(const SizedBox(width: 8));
+
+      if (_selectedPrimary == 'Name') {
+        chips.add(_buildSecondaryChip('Z-A', colors));
+      } else if (_selectedPrimary == 'Date') {
+        chips.add(_buildSecondaryChip('Oldest', colors));
+      } else if (_selectedPrimary == 'Ownership') {
+        chips.add(_buildSecondaryChip('Created', colors));
+        chips.add(const SizedBox(width: 8));
+        chips.add(_buildSecondaryChip('Shortcuts', colors));
+      }
+    }
+
+    return chips;
+  }
+
+  Widget _buildPrimaryChip(String label, ColorScheme colors) {
+    final isSelected = _selectedPrimary == label;
     return FilterChip(
-      label: Text(filterName),
+      label: Text(label),
       selected: isSelected,
-      onSelected: (val) {
+      onSelected: (selected) {
         setState(() {
-          _selectedFilter = filterName;
+          if (isSelected) {
+            _selectedPrimary = null;
+            _selectedSecondary = null;
+          } else {
+            _selectedPrimary = label;
+            _selectedSecondary = null;
+          }
         });
       },
       selectedColor: colors.primaryContainer,
       checkmarkColor: colors.onPrimaryContainer,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    );
+  }
+
+  Widget _buildSecondaryChip(String label, ColorScheme colors) {
+    final isSelected = _selectedSecondary == label;
+    return FilterChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (selected) {
+        setState(() {
+          _selectedSecondary = isSelected ? null : label;
+        });
+      },
+      selectedColor: colors.secondaryContainer,
+      checkmarkColor: colors.onSecondaryContainer,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     );
   }
@@ -632,6 +1092,7 @@ class SessionCard extends StatelessWidget {
     required this.onFavoriteToggle,
     required this.onTap,
     required this.onDelete,
+    required this.onMoveToFolder,
   });
 
   final Session session;
@@ -640,6 +1101,7 @@ class SessionCard extends StatelessWidget {
   final VoidCallback onFavoriteToggle;
   final VoidCallback onTap;
   final VoidCallback onDelete;
+  final VoidCallback onMoveToFolder;
 
   String _getExpiryText(DateTime expiry) {
     final now = DateTime.now();
@@ -744,7 +1206,8 @@ class SessionCard extends StatelessWidget {
                         : 'Add to Favorites',
                     icon: Icon(
                       isFavorite ? Icons.favorite : Icons.favorite_border,
-                      color: isFavorite ? Colors.red : colors.onSurfaceVariant,
+                      color: isFavorite ? colors.primary : colors
+                          .onSurfaceVariant,
                     ),
                     iconSize: 22,
                     onPressed: onFavoriteToggle,
@@ -756,6 +1219,8 @@ class SessionCard extends StatelessWidget {
                         onDelete();
                       } else if (val == 'view') {
                         onTap();
+                      } else if (val == 'folder') {
+                        onMoveToFolder();
                       }
                     },
                     itemBuilder: (context) =>
@@ -763,6 +1228,10 @@ class SessionCard extends StatelessWidget {
                       const PopupMenuItem(
                         value: 'view',
                         child: Text('Enter Session'),
+                      ),
+                      const PopupMenuItem(
+                        value: 'folder',
+                        child: Text('Move to Folder...'),
                       ),
                       PopupMenuItem(
                         value: 'delete',
@@ -865,8 +1334,85 @@ class SessionCard extends StatelessWidget {
                     icon: const Icon(Icons.qr_code),
                     iconSize: 18,
                     tooltip: 'Show QR code',
-                    onPressed: () async {
-                      // Action details
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) {
+                          final dialogColors = Theme
+                              .of(context)
+                              .colorScheme;
+                          final dialogTextTheme = Theme
+                              .of(context)
+                              .textTheme;
+
+                          return AlertDialog(
+                            title: Text(
+                              'Scan to Join',
+                              style: dialogTextTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.bold),
+                              textAlign: TextAlign.center,
+                            ),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  session.title,
+                                  style: dialogTextTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: dialogColors.onSurfaceVariant,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 16),
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(
+                                            alpha: 0.1),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  padding: const EdgeInsets.all(16),
+                                  child: QrImageView(
+                                    data: session.joinCode,
+                                    version: QrVersions.auto,
+                                    size: 200.0,
+                                    gapless: false,
+                                    eyeStyle: const QrEyeStyle(
+                                      eyeShape: QrEyeShape.square,
+                                      color: Colors.black,
+                                    ),
+                                    dataModuleStyle: const QrDataModuleStyle(
+                                      dataModuleShape: QrDataModuleShape.square,
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Join Code: ${session.joinCode}',
+                                  style: dialogTextTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: dialogColors.primary,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('Close'),
+                              ),
+                            ],
+                          );
+                        },
+                      );
                     },
                   ),
                 ],

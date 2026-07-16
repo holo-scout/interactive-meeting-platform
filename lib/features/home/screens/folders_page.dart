@@ -12,23 +12,80 @@ class FoldersPage extends StatefulWidget {
 
 class _FoldersPageState extends State<FoldersPage> {
   final _sessionService = SessionService();
+  String? _selectedPrimary;
+  String? _selectedSecondary;
+  final SearchController _searchController = SearchController();
+  bool _wasSearchOpen = false;
 
   @override
   void initState() {
     super.initState();
     _sessionService.addListener(_updateState);
+    _searchController.addListener(_onSearchControllerChanged);
   }
 
   @override
   void dispose() {
     _sessionService.removeListener(_updateState);
+    _searchController.removeListener(_onSearchControllerChanged);
+    _searchController.dispose();
     super.dispose();
+  }
+
+  void _onSearchControllerChanged() {
+    final isOpen = _searchController.isOpen;
+    if (_wasSearchOpen && !isOpen) {
+      _searchController.clear();
+      FocusManager.instance.primaryFocus?.unfocus();
+    }
+    _wasSearchOpen = isOpen;
   }
 
   void _updateState() {
     if (mounted) {
       setState(() {});
     }
+  }
+
+  Iterable<Widget> _getSearchSuggestions(SearchController controller) {
+    final query = controller.text.toLowerCase();
+    final List<Widget> suggestions = [];
+    final folders = _sessionService.getFolders();
+
+    final matchingFolders = folders
+        .where((f) => f.name.toLowerCase().contains(query))
+        .toList();
+
+    if (matchingFolders.isNotEmpty) {
+      suggestions.addAll(matchingFolders.map((folder) =>
+          ListTile(
+            leading: const Icon(Icons.folder),
+            title: Text(folder.name),
+            onTap: () {
+              controller.closeView(folder.name);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => FolderDetailsPage(folder: folder),
+                ),
+              ).then((_) {
+                _searchController.clear();
+                FocusManager.instance.primaryFocus?.unfocus();
+              });
+            },
+          )));
+    }
+
+    if (suggestions.isEmpty) {
+      suggestions.add(const Padding(
+        padding: EdgeInsets.all(24.0),
+        child: Center(
+          child: Text('No matching folders found.'),
+        ),
+      ));
+    }
+
+    return suggestions;
   }
 
   void _showCreateFolderDialog() {
@@ -154,8 +211,18 @@ class _FoldersPageState extends State<FoldersPage> {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final folders = _sessionService.getFolders();
     final activeSessions = _sessionService.getActiveSessions();
+
+    final folders = List<Folder>.from(_sessionService.getFolders());
+    if (_selectedPrimary == 'Name') {
+      if (_selectedSecondary == 'Z-A') {
+        folders.sort((a, b) =>
+            b.name.toLowerCase().compareTo(a.name.toLowerCase()));
+      } else {
+        folders.sort((a, b) =>
+            a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      }
+    }
 
     return Scaffold(
       backgroundColor: colors.surface,
@@ -179,8 +246,60 @@ class _FoldersPageState extends State<FoldersPage> {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 800),
-            child: folders.isEmpty
-                ? Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 24.0, vertical: 16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SearchAnchor(
+                    searchController: _searchController,
+                    builder: (BuildContext context,
+                        SearchController controller) {
+                      return SearchBar(
+                        controller: controller,
+                        elevation: const WidgetStatePropertyAll<double>(0.0),
+                        backgroundColor: WidgetStatePropertyAll<Color>(
+                          colors.surfaceContainerHigh,
+                        ),
+                        padding: const WidgetStatePropertyAll<EdgeInsets>(
+                          EdgeInsets.symmetric(horizontal: 16.0),
+                        ),
+                        onTap: () {
+                          controller.openView();
+                        },
+                        onChanged: (_) {
+                          controller.openView();
+                        },
+                        leading: const Icon(Icons.search),
+                        trailing: <Widget>[
+                          if (controller.text.isNotEmpty)
+                            IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                controller.clear();
+                              },
+                            ),
+                        ],
+                        hintText: 'Search folders...',
+                      );
+                    },
+                    suggestionsBuilder: (BuildContext context,
+                        SearchController controller) {
+                      return _getSearchSuggestions(controller);
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: _buildSortFilterChips(colors),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: folders.isEmpty
+                        ? Center(
                     child: Padding(
                       padding: const EdgeInsets.all(32.0),
                       child: Column(
@@ -214,13 +333,12 @@ class _FoldersPageState extends State<FoldersPage> {
                         ],
                       ),
                     ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 16,
-                    ),
-                    itemCount: folders.length,
+                    )
+                        : ListView.builder(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 8,
+                      ),
+                      itemCount: folders.length,
                     itemBuilder: (context, index) {
                       final folder = folders[index];
                       final sessionCount = activeSessions
@@ -299,14 +417,73 @@ class _FoldersPageState extends State<FoldersPage> {
                       );
                     },
                   ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showCreateFolderDialog,
         tooltip: 'Create Folder',
-        child: const Icon(Icons.add_to_photos_outlined),
+        child: const Icon(Icons.add),
       ),
+    );
+  }
+
+  List<Widget> _buildSortFilterChips(ColorScheme colors) {
+    final List<Widget> chips = [];
+
+    if (_selectedPrimary == null) {
+      chips.add(_buildPrimaryChip('Name', colors));
+    } else {
+      chips.add(_buildPrimaryChip(_selectedPrimary!, colors));
+      chips.add(const SizedBox(width: 8));
+
+      if (_selectedPrimary == 'Name') {
+        chips.add(_buildSecondaryChip('Z-A', colors));
+      }
+    }
+
+    return chips;
+  }
+
+  Widget _buildPrimaryChip(String label, ColorScheme colors) {
+    final isSelected = _selectedPrimary == label;
+    return FilterChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (selected) {
+        setState(() {
+          if (isSelected) {
+            _selectedPrimary = null;
+            _selectedSecondary = null;
+          } else {
+            _selectedPrimary = label;
+            _selectedSecondary = null;
+          }
+        });
+      },
+      selectedColor: colors.primaryContainer,
+      checkmarkColor: colors.onPrimaryContainer,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    );
+  }
+
+  Widget _buildSecondaryChip(String label, ColorScheme colors) {
+    final isSelected = _selectedSecondary == label;
+    return FilterChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (selected) {
+        setState(() {
+          _selectedSecondary = isSelected ? null : label;
+        });
+      },
+      selectedColor: colors.secondaryContainer,
+      checkmarkColor: colors.onSecondaryContainer,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     );
   }
 }

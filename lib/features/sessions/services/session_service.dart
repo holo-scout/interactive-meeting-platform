@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/session.dart';
+import '../models/folder.dart';
 
 class SessionService {
   // Singleton pattern
@@ -40,10 +41,12 @@ class SessionService {
   StreamSubscription? _createdSessionsSubscription;
   StreamSubscription? _shortcutSessionsSubscription;
   StreamSubscription? _favoritesSubscription;
+  StreamSubscription? _foldersSubscription;
 
   List<Session> _createdSessions = [];
   List<Session> _shortcutSessions = [];
   final List<String> _favoriteSessionIds = [];
+  final List<Folder> _folders = [];
 
   void _initAuthAndFirestoreListeners() {
     _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
@@ -58,6 +61,7 @@ class SessionService {
     _createdSessionsSubscription?.cancel();
     _shortcutSessionsSubscription?.cancel();
     _favoritesSubscription?.cancel();
+    _foldersSubscription?.cancel();
 
     // Clear caches
     _sessions.clear();
@@ -65,6 +69,7 @@ class SessionService {
     _createdSessions.clear();
     _shortcutSessions.clear();
     _favoriteSessionIds.clear();
+    _folders.clear();
     _notifyListeners();
 
     // 1. Listen to shortcuts for this user
@@ -121,6 +126,21 @@ class SessionService {
     }, onError: (error) {
       debugPrint("Error listening to favorites: $error");
     });
+
+    // 4. Listen to folders for this user
+    _foldersSubscription = FirebaseFirestore.instance
+        .collection('folders')
+        .where('userID', isEqualTo: uid)
+        .snapshots()
+        .listen((foldersSnapshot) {
+      _folders.clear();
+      for (var doc in foldersSnapshot.docs) {
+        _folders.add(Folder.fromMap(doc.data()));
+      }
+      _notifyListeners();
+    }, onError: (error) {
+      debugPrint("Error listening to folders: $error");
+    });
   }
 
   void _updateShortcutSessionsListener(List<String> shortcutSessionIds) {
@@ -170,6 +190,7 @@ class SessionService {
     _createdSessionsSubscription?.cancel();
     _shortcutSessionsSubscription?.cancel();
     _favoritesSubscription?.cancel();
+    _foldersSubscription?.cancel();
   }
 
   // Get all active sessions for the current user (either created by them or in their shortcuts)
@@ -367,6 +388,82 @@ class SessionService {
         }
       }
     }
+  }
+
+  // Get folders for the current user
+  List<Folder> getFolders() {
+    return _folders;
+  }
+
+  // Create a new folder
+  Future<void> createFolder(String name) async {
+    final uid = _currentUserId;
+    final folderID = 'fold_${DateTime
+        .now()
+        .millisecondsSinceEpoch}';
+    final newFolder = Folder(
+      folderID: folderID,
+      name: name,
+      userID: uid,
+    );
+
+    await FirebaseFirestore.instance
+        .collection('folders')
+        .doc(folderID)
+        .set(newFolder.toMap());
+  }
+
+  // Delete a folder and reset any sessions belonging to it to 'Default'
+  Future<void> deleteFolder(String folderID, String folderName) async {
+    final uid = _currentUserId;
+
+    // Delete folder document
+    await FirebaseFirestore.instance
+        .collection('folders')
+        .doc(folderID)
+        .delete();
+
+    // Reset sessions folder value
+    final sessionsQuery = await FirebaseFirestore.instance
+        .collection('sessions')
+        .where('creatorId', isEqualTo: uid)
+        .where('folder', isEqualTo: folderName)
+        .get();
+
+    for (var doc in sessionsQuery.docs) {
+      await doc.reference.update({'folder': 'Default'});
+    }
+  }
+
+  // Rename a folder and update any sessions belonging to it to the new folder name
+  Future<void> renameFolder(String folderID, String oldName,
+      String newName) async {
+    final uid = _currentUserId;
+
+    // Update folder document name
+    await FirebaseFirestore.instance
+        .collection('folders')
+        .doc(folderID)
+        .update({'name': newName});
+
+    // Update sessions folder value
+    final sessionsQuery = await FirebaseFirestore.instance
+        .collection('sessions')
+        .where('creatorId', isEqualTo: uid)
+        .where('folder', isEqualTo: oldName)
+        .get();
+
+    for (var doc in sessionsQuery.docs) {
+      await doc.reference.update({'folder': newName});
+    }
+  }
+
+  // Update a session's folder location
+  Future<void> updateSessionFolder(String sessionID, String folderName) async {
+    await FirebaseFirestore.instance
+        .collection('sessions')
+        .doc(sessionID)
+        .update({'folder': folderName});
   }
 
   // Helper to generate a random 6-character alphanumeric code

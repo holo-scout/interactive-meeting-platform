@@ -16,6 +16,8 @@ class FolderDetailsPage extends StatefulWidget {
 
 class _FolderDetailsPageState extends State<FolderDetailsPage> {
   final _sessionService = SessionService();
+  String? _selectedPrimary;
+  String? _selectedSecondary;
 
   @override
   void initState() {
@@ -112,6 +114,49 @@ class _FolderDetailsPageState extends State<FolderDetailsPage> {
         .where((s) => s.folder == widget.folder.name)
         .toList();
 
+    // Apply sorting & filtering based on primary and secondary chips
+    var filteredSessions = List<Session>.from(folderSessions);
+
+    if (_selectedPrimary == 'Ownership') {
+      if (_selectedSecondary == 'Created') {
+        filteredSessions = folderSessions.where((session) {
+          return !_sessionService.isSessionShortcut(session.sessionID);
+        }).toList();
+      } else if (_selectedSecondary == 'Shortcuts') {
+        filteredSessions = folderSessions.where((session) {
+          return _sessionService.isSessionShortcut(session.sessionID);
+        }).toList();
+      }
+    }
+
+    if (_selectedPrimary == 'Name') {
+      if (_selectedSecondary == 'Z-A') {
+        filteredSessions.sort((a, b) =>
+            b.title.toLowerCase().compareTo(a.title.toLowerCase()));
+      } else {
+        filteredSessions.sort((a, b) =>
+            a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+      }
+    } else if (_selectedPrimary == 'Date') {
+      int getCreationTime(Session session) {
+        final id = session.sessionID;
+        if (id.startsWith('sess_')) {
+          final timeStr = id.substring(5);
+          final time = int.tryParse(timeStr);
+          if (time != null) return time;
+        }
+        return 0;
+      }
+
+      if (_selectedSecondary == 'Oldest') {
+        filteredSessions.sort((a, b) =>
+            getCreationTime(a).compareTo(getCreationTime(b)));
+      } else {
+        filteredSessions.sort((a, b) =>
+            getCreationTime(b).compareTo(getCreationTime(a)));
+      }
+    }
+
     return Scaffold(
       backgroundColor: colors.surface,
       appBar: AppBar(
@@ -134,8 +179,22 @@ class _FolderDetailsPageState extends State<FolderDetailsPage> {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 800),
-            child: folderSessions.isEmpty
-                ? Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 24.0, vertical: 16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: _buildSortFilterChips(colors),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: filteredSessions.isEmpty
+                        ? Center(
                     child: Padding(
                       padding: const EdgeInsets.all(32.0),
                       child: Column(
@@ -169,56 +228,126 @@ class _FolderDetailsPageState extends State<FolderDetailsPage> {
                         ],
                       ),
                     ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 16,
-                    ),
-                    itemCount: folderSessions.length,
-                    itemBuilder: (context, index) {
-                      final session = folderSessions[index];
-                      final isShortcut = _sessionService.isSessionShortcut(
-                        session.sessionID,
-                      );
-                      final isFavorite = _sessionService.isSessionFavorite(
-                        session.sessionID,
-                      );
+                    )
 
-                      return SessionCard(
-                        session: session,
-                        isShortcut: isShortcut,
-                        isFavorite: isFavorite,
-                        onFavoriteToggle: () {
-                          _sessionService.toggleFavorite(session.sessionID);
-                        },
-                        onTap: () {
-                          final page = isShortcut
-                              ? ParticipantSessionPage(session: session)
-                              : AdministratorSessionPage(session: session);
-                          Navigator.of(
-                            context,
-                          ).push(MaterialPageRoute(builder: (_) => page));
-                        },
-                        onDelete: () {
-                          _sessionService.deleteSession(session.sessionID);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                isShortcut
-                                    ? 'Shortcut removed.'
-                                    : 'Session moved to Trash.',
+                        : ListView.builder(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 8,
+                      ),
+                      itemCount: filteredSessions.length,
+                      itemBuilder: (context, index) {
+                        final session = filteredSessions[index];
+                        final isShortcut = _sessionService.isSessionShortcut(
+                          session.sessionID,
+                        );
+                        final isFavorite = _sessionService.isSessionFavorite(
+                          session.sessionID,
+                        );
+
+                        return SessionCard(
+                          session: session,
+                          isShortcut: isShortcut,
+                          isFavorite: isFavorite,
+                          onFavoriteToggle: () {
+                            _sessionService.toggleFavorite(session.sessionID);
+                          },
+                          onTap: () {
+                            final page = isShortcut
+                                ? ParticipantSessionPage(session: session)
+                                : AdministratorSessionPage(session: session);
+                            Navigator.of(
+                              context,
+                            ).push(MaterialPageRoute(builder: (_) => page));
+                          },
+                          onDelete: () {
+                            _sessionService.deleteSession(session.sessionID);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  isShortcut
+                                      ? 'Shortcut removed.'
+                                      : 'Session moved to Trash.',
+                                ),
                               ),
-                            ),
-                          );
-                        },
-                        onMoveToFolder: () => _showMoveToFolderDialog(session),
-                      );
-                    },
+                            );
+                          },
+                          onMoveToFolder: () =>
+                              _showMoveToFolderDialog(session),
+                        );
+                      },
+                    ),
                   ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  List<Widget> _buildSortFilterChips(ColorScheme colors) {
+    final List<Widget> chips = [];
+
+    if (_selectedPrimary == null) {
+      chips.add(_buildPrimaryChip('Name', colors));
+      chips.add(const SizedBox(width: 8));
+      chips.add(_buildPrimaryChip('Date', colors));
+      chips.add(const SizedBox(width: 8));
+      chips.add(_buildPrimaryChip('Ownership', colors));
+    } else {
+      chips.add(_buildPrimaryChip(_selectedPrimary!, colors));
+      chips.add(const SizedBox(width: 8));
+
+      if (_selectedPrimary == 'Name') {
+        chips.add(_buildSecondaryChip('Z-A', colors));
+      } else if (_selectedPrimary == 'Date') {
+        chips.add(_buildSecondaryChip('Oldest', colors));
+      } else if (_selectedPrimary == 'Ownership') {
+        chips.add(_buildSecondaryChip('Created', colors));
+        chips.add(const SizedBox(width: 8));
+        chips.add(_buildSecondaryChip('Shortcuts', colors));
+      }
+    }
+
+    return chips;
+  }
+
+  Widget _buildPrimaryChip(String label, ColorScheme colors) {
+    final isSelected = _selectedPrimary == label;
+    return FilterChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (selected) {
+        setState(() {
+          if (isSelected) {
+            _selectedPrimary = null;
+            _selectedSecondary = null;
+          } else {
+            _selectedPrimary = label;
+            _selectedSecondary = null;
+          }
+        });
+      },
+      selectedColor: colors.primaryContainer,
+      checkmarkColor: colors.onPrimaryContainer,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    );
+  }
+
+  Widget _buildSecondaryChip(String label, ColorScheme colors) {
+    final isSelected = _selectedSecondary == label;
+    return FilterChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (selected) {
+        setState(() {
+          _selectedSecondary = isSelected ? null : label;
+        });
+      },
+      selectedColor: colors.secondaryContainer,
+      checkmarkColor: colors.onSecondaryContainer,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     );
   }
 }
