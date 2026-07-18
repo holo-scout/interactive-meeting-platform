@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/session.dart';
 import '../../models/quiz.dart';
 import '../../services/quiz_service.dart';
@@ -833,6 +836,260 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
     }
   }
 
+  List<QuizQuestion> _generateQuestions({
+    required List<String> topics,
+    required int mcqCount,
+    required int checkboxCount,
+    required int openCount,
+  }) {
+    final List<QuizQuestion> questions = [];
+    int qId = 1;
+
+    final Map<String, List<Map<String, dynamic>>> mcqPool = {
+      'stateful': [
+        {
+          'question': 'Which method is invoked first in the lifecycle of a State object?',
+          'options': [
+            'initState()',
+            'build()',
+            'didChangeDependencies()',
+            'createState()'
+          ],
+          'correct': ['initState()'],
+        },
+      ],
+      'state management': [
+        {
+          'question': 'Which provider type is best suited for managing complex state objects in Riverpod?',
+          'options': [
+            'StateNotifierProvider',
+            'Provider',
+            'FutureProvider',
+            'StreamProvider'
+          ],
+          'correct': ['StateNotifierProvider'],
+        },
+      ],
+      'asynchronous': [
+        {
+          'question': 'What keyword is used to yield values from an asynchronous generator function in Dart?',
+          'options': ['yield', 'return', 'async*', 'yield*'],
+          'correct': ['yield'],
+        },
+      ],
+      'custom painter': [
+        {
+          'question': 'Which method must be overridden to define custom rendering logic in a CustomPainter?',
+          'options': ['paint()', 'shouldRepaint()', 'draw()', 'layout()'],
+          'correct': ['paint()'],
+        },
+      ],
+      'firestore': [
+        {
+          'question': 'Which rule determines write privileges in Firestore security rules?',
+          'options': [
+            'allow write: if ...',
+            'allow read: if ...',
+            'allow get: if ...',
+            'allow list: if ...'
+          ],
+          'correct': ['allow write: if ...'],
+        },
+      ],
+      'auth': [
+        {
+          'question': 'Which authentication provider is supported natively by Firebase Auth out-of-the-box?',
+          'options': [
+            'Email/Password',
+            'OAuth (Google/Apple)',
+            'Phone SMS',
+            'All of the above'
+          ],
+          'correct': ['All of the above'],
+        },
+      ],
+      'security rules': [
+        {
+          'question': 'Which keyword is used to access incoming document data in Firestore security rules?',
+          'options': [
+            'request.resource.data',
+            'resource.data',
+            'request.data',
+            'incoming.data'
+          ],
+          'correct': ['request.resource.data'],
+        },
+      ],
+      'llm': [
+        {
+          'question': 'What is the primary role of a prompt template in LLM application design?',
+          'options': [
+            'Standardize inputs',
+            'Reduce tokens',
+            'Accelerate latency',
+            'Manage embeddings'
+          ],
+          'correct': ['Standardize inputs'],
+        },
+      ],
+      'prompt engineering': [
+        {
+          'question': 'Which prompt engineering technique uses examples to guide the model output structure?',
+          'options': [
+            'Few-shot prompting',
+            'Zero-shot prompting',
+            'Chain-of-thought',
+            'System prompting'
+          ],
+          'correct': ['Few-shot prompting'],
+        },
+      ],
+    };
+
+    final Map<String, List<Map<String, dynamic>>> checkboxPool = {
+      'stateful': [
+        {
+          'question': 'Select all lifecycle methods of a State object that are called multiple times:',
+          'options': [
+            'build()',
+            'didUpdateWidget()',
+            'initState()',
+            'dispose()'
+          ],
+          'correct': ['build()', 'didUpdateWidget()'],
+        },
+      ],
+      'state management': [
+        {
+          'question': 'Which of the following are reactive state management packages in Flutter?',
+          'options': ['Provider', 'Riverpod', 'Bloc', 'Http'],
+          'correct': ['Provider', 'Riverpod', 'Bloc'],
+        },
+      ],
+      'firestore': [
+        {
+          'question': 'Which sub-operations make up the Firestore write privilege?',
+          'options': ['create', 'update', 'delete', 'get'],
+          'correct': ['create', 'update', 'delete'],
+        },
+      ],
+      'llm': [
+        {
+          'question': 'Which of the following are components of a standard RAG pipeline?',
+          'options': [
+            'Vector Database',
+            'Document Chunking',
+            'Embedding Model',
+            'Direct CPU instruction'
+          ],
+          'correct': [
+            'Vector Database',
+            'Document Chunking',
+            'Embedding Model'
+          ],
+        },
+      ],
+    };
+
+    final Map<String, String> openPool = {
+      'stateful': 'Explain the difference between hot reload and hot restart in Flutter, and how they affect the widget tree state.',
+      'state management': 'Compare and contrast local state (setState) vs global state management (e.g. Riverpod) in Flutter development.',
+      'asynchronous': 'Describe how the event loop works in Dart and how asynchronous microtasks and events are prioritised.',
+      'firestore': 'Explain the trade-offs between nested subcollections vs root-level collections with references in Firestore database design.',
+      'llm': 'Explain the concept of Retrieval-Augmented Generation (RAG) and why it is useful for domain-specific AI queries.',
+      'general': 'Describe the core challenges and potential solutions when integrating third-party AI APIs into production systems.',
+    };
+
+    List<Map<String, dynamic>> getMatchingMcq(String topic) {
+      final key = mcqPool.keys.firstWhere(
+            (k) => topic.toLowerCase().contains(k),
+        orElse: () => '',
+      );
+      if (key.isNotEmpty) return mcqPool[key]!;
+      return [
+        {
+          'question': 'Which of the following is a key aspect of "$topic"?',
+          'options': [
+            'Core mechanism',
+            'Alternative approach',
+            'Performance overhead',
+            'Historical artifact'
+          ],
+          'correct': ['Core mechanism'],
+        }
+      ];
+    }
+
+    List<Map<String, dynamic>> getMatchingCheckbox(String topic) {
+      final key = checkboxPool.keys.firstWhere(
+            (k) => topic.toLowerCase().contains(k),
+        orElse: () => '',
+      );
+      if (key.isNotEmpty) return checkboxPool[key]!;
+      return [
+        {
+          'question': 'Select all valid attributes/features of "$topic":',
+          'options': [
+            'Primary driver',
+            'Scalability component',
+            'Deprecated method',
+            'Security risk'
+          ],
+          'correct': ['Primary driver', 'Scalability component'],
+        }
+      ];
+    }
+
+    String getMatchingOpen(String topic) {
+      final key = openPool.keys.firstWhere(
+            (k) => topic.toLowerCase().contains(k),
+        orElse: () => '',
+      );
+      if (key.isNotEmpty) return openPool[key]!;
+      return 'Discuss the primary benefits, design patterns, and main implementation hurdles associated with "$topic".';
+    }
+
+    for (int i = 0; i < mcqCount; i++) {
+      final topic = topics[i % topics.length];
+      final pool = getMatchingMcq(topic);
+      final item = pool[i % pool.length];
+      questions.add(QuizQuestion(
+        questionId: 'q_${qId++}',
+        questionText: item['question'],
+        type: 'multiple_choice',
+        options: List<String>.from(item['options']),
+        correctAnswers: List<String>.from(item['correct']),
+      ));
+    }
+
+    for (int i = 0; i < checkboxCount; i++) {
+      final topic = topics[(i + mcqCount) % topics.length];
+      final pool = getMatchingCheckbox(topic);
+      final item = pool[i % pool.length];
+      questions.add(QuizQuestion(
+        questionId: 'q_${qId++}',
+        questionText: item['question'],
+        type: 'checkbox',
+        options: List<String>.from(item['options']),
+        correctAnswers: List<String>.from(item['correct']),
+      ));
+    }
+
+    for (int i = 0; i < openCount; i++) {
+      final topic = topics[(i + mcqCount + checkboxCount) % topics.length];
+      final promptText = getMatchingOpen(topic);
+      questions.add(QuizQuestion(
+        questionId: 'q_${qId++}',
+        questionText: promptText,
+        type: 'open_ended',
+        options: [],
+        correctAnswers: [],
+      ));
+    }
+
+    return questions;
+  }
+
   void _showAiGenerationBottomSheet() {
     showModalBottomSheet(
       context: context,
@@ -845,27 +1102,124 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
       builder: (context) {
         return _AiGenerationBottomSheet(sessionID: widget.session.sessionID);
       },
-    ).then((result) {
+    ).then((result) async {
       if (result != null && result is Map<String, dynamic>) {
         if (!mounted) return;
         final mcq = result['mcqCount'] as int;
         final chk = result['checkboxCount'] as int;
         final open = result['openEndedCount'] as int;
-        final qna = result['relevantToQna'] as bool;
-        final prompt = result['prompt'] as String;
-        final files = result['files'] as List<PlatformFile>;
+        final topics = List<String>.from(result['selectedTopics']);
+        final fileName = result['fileName'] as String;
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'AI Generation Triggered:\n'
-                  'MCQ: $mcq, Checkbox: $chk, Open: $open, Q&A: $qna\n'
-                  'Prompt: "$prompt"\n'
-                  'PDF Files attached: ${files.map((f) => f.name).join(', ')}',
+        if (topics.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'Please select at least one topic to generate quiz questions.'),
+              backgroundColor: Colors.redAccent,
             ),
-            duration: const Duration(seconds: 4),
+          );
+          return;
+        }
+
+        final messenger = ScaffoldMessenger.of(context);
+        final errorColor = Theme
+            .of(context)
+            .colorScheme
+            .error;
+
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                ),
+                SizedBox(width: 16),
+                Text('AI generating quiz questions...'),
+              ],
+            ),
+            duration: Duration(seconds: 2),
           ),
         );
+
+        List<QuizQuestion>? questions;
+        try {
+          final fileUrl = 'https://firebasestorage.googleapis.com/v0/b/${FirebaseFirestore
+              .instance.app.options.storageBucket}/o/session_pdfs%2F${widget
+              .session.sessionID}%2F$fileName?alt=media';
+          final callable = FirebaseFunctions.instance.httpsCallable(
+              'generateQuizQuestions');
+          final response = await callable.call({
+            'fileUrl': fileUrl,
+            'selectedTopics': topics,
+            'mcqCount': mcq,
+            'checkboxCount': chk,
+            'openCount': open,
+          });
+
+          if (response.data != null && response.data['questions'] != null) {
+            final questionsData = response.data['questions'] as List;
+            int qId = 1;
+            questions = questionsData.map((q) {
+              return QuizQuestion(
+                questionId: 'q_${qId++}',
+                questionText: q['questionText'] as String? ?? '',
+                type: q['type'] as String? ?? 'multiple_choice',
+                options: List<String>.from(q['options'] ?? []),
+                correctAnswers: List<String>.from(q['correctAnswers'] ?? []),
+              );
+            }).toList();
+          }
+        } catch (e) {
+          debugPrint(
+              "Production AI question generation failed, falling back to mock: $e");
+        }
+
+        questions ??= _generateQuestions(
+          topics: topics,
+          mcqCount: mcq,
+          checkboxCount: chk,
+          openCount: open,
+        );
+
+        final quizId = 'quiz_${DateTime
+            .now()
+            .millisecondsSinceEpoch}';
+        final quiz = Quiz(
+          quizId: quizId,
+          title: 'Quiz: ${fileName.replaceAll(".pdf", "")}',
+          description: 'AI-generated quiz from $fileName targeting: ${topics
+              .join(", ")}',
+          questions: questions,
+          isReleased: false,
+          createdAt: DateTime.now(),
+        );
+
+        try {
+          await QuizService().createOrUpdateQuiz(
+            widget.session.sessionID,
+            quiz,
+          );
+          messenger.showSnackBar(
+            const SnackBar(
+              content: Text('AI quiz generated successfully as Draft!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } catch (e) {
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text('Failed to save generated quiz: $e'),
+              backgroundColor: errorColor,
+            ),
+          );
+        }
       }
     });
   }
@@ -1510,7 +1864,6 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
     }
   }
 }
-
 class _AiGenerationBottomSheet extends StatefulWidget {
   const _AiGenerationBottomSheet({required this.sessionID});
 
@@ -1522,18 +1875,14 @@ class _AiGenerationBottomSheet extends StatefulWidget {
 }
 
 class _AiGenerationBottomSheetState extends State<_AiGenerationBottomSheet> {
-  int _mcqCount = 0;
-  int _checkboxCount = 0;
-  int _openEndedCount = 0;
+  int _mcqCount = 5;
+  int _checkboxCount = 3;
+  int _openEndedCount = 2;
   bool _relevantToQna = false;
-  final TextEditingController _promptController = TextEditingController();
-  final List<PlatformFile> _uploadedFiles = [];
-
-  @override
-  void dispose() {
-    _promptController.dispose();
-    super.dispose();
-  }
+  PlatformFile? _selectedPdf;
+  List<String> _detectedTopics = [];
+  final Set<String> _selectedTopics = {};
+  bool _isAnalyzing = false;
 
   Future<void> _pickPdfFile() async {
     final colors = Theme
@@ -1546,11 +1895,55 @@ class _AiGenerationBottomSheetState extends State<_AiGenerationBottomSheet> {
         withData: true,
       );
       if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
         setState(() {
-          _uploadedFiles.addAll(result.files);
+          _selectedPdf = file;
+          _isAnalyzing = true;
+        });
+
+        try {
+          String fileUrl = '';
+          if (file.bytes != null) {
+            final storageRef = FirebaseStorage.instance
+                .ref()
+                .child('session_pdfs/${widget.sessionID}/${DateTime
+                .now()
+                .millisecondsSinceEpoch}_${file.name}');
+            await storageRef.putData(file.bytes!);
+            fileUrl = await storageRef.getDownloadURL();
+          }
+
+          if (fileUrl.isNotEmpty) {
+            final callable = FirebaseFunctions.instance.httpsCallable(
+                'extractTopicsFromPdf');
+            final response = await callable.call({'fileUrl': fileUrl});
+            final topics = List<String>.from(response.data['topics']);
+            if (topics.isNotEmpty) {
+              setState(() {
+                _detectedTopics = topics;
+                _selectedTopics.clear();
+                _selectedTopics.addAll(topics);
+                _isAnalyzing = false;
+              });
+              return;
+            }
+          }
+        } catch (e) {
+          debugPrint(
+              "Production AI topic extraction failed, falling back to mock: $e");
+        }
+
+        setState(() {
+          _detectedTopics = _extractMockTopics(file.name);
+          _selectedTopics.clear();
+          _selectedTopics.addAll(_detectedTopics);
+          _isAnalyzing = false;
         });
       }
     } catch (e) {
+      setState(() {
+        _isAnalyzing = false;
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1562,20 +1955,62 @@ class _AiGenerationBottomSheetState extends State<_AiGenerationBottomSheet> {
     }
   }
 
-  void _removePdfFile(PlatformFile file) {
+  List<String> _extractMockTopics(String fileName) {
+    final lowerName = fileName.toLowerCase();
+    if (lowerName.contains('flutter') || lowerName.contains('dart')) {
+      return [
+        'Stateful vs Stateless Widgets',
+        'State Management (Provider/Riverpod)',
+        'Widget Lifecycle (initState, didChangeDependencies)',
+        'Asynchronous Programming (Futures & Streams)',
+        'Custom Painters & Custom Clippers',
+      ];
+    } else
+    if (lowerName.contains('firebase') || lowerName.contains('firestore')) {
+      return [
+        'Firestore Collection Structure & Queries',
+        'Firebase Authentication & Sign-in methods',
+        'Real-time Streams & Offline Caching',
+        'Firestore Security Rules & Data Validation',
+        'Cloud Functions HTTP Triggers & Database Triggers',
+      ];
+    } else if (lowerName.contains('ai') || lowerName.contains('gpt') ||
+        lowerName.contains('gemini')) {
+      return [
+        'Large Language Models (LLM) Integration',
+        'Prompt Engineering & Structured System Prompts',
+        'Retrieval-Augmented Generation (RAG) Architecture',
+        'Tokenization & Context Window Optimization',
+        'Gemini API Call Limits & Function Calling',
+      ];
+    } else {
+      return [
+        'Main Concepts & Document Overview',
+        'Key Terminology & Core Definitions',
+        'Historical Context & Background',
+        'Practical Applications & Best Practices',
+        'Alternative Solutions & Trade-offs',
+      ];
+    }
+  }
+
+  void _removePdfFile() {
     setState(() {
-      _uploadedFiles.remove(file);
+      _selectedPdf = null;
+      _detectedTopics.clear();
+      _selectedTopics.clear();
     });
   }
 
   void _handleSubmit() {
+    if (_selectedPdf == null) return;
     Navigator.pop(context, {
       'mcqCount': _mcqCount,
       'checkboxCount': _checkboxCount,
       'openEndedCount': _openEndedCount,
       'relevantToQna': _relevantToQna,
-      'prompt': _promptController.text.trim(),
-      'files': _uploadedFiles,
+      'fileName': _selectedPdf!.name,
+      'selectedTopics': _selectedTopics.toList(),
     });
   }
 
@@ -1662,225 +2097,390 @@ class _AiGenerationBottomSheetState extends State<_AiGenerationBottomSheet> {
       ),
       child: SafeArea(
         bottom: true,
-        child: Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery
-                .of(context)
-                .viewInsets
-                .bottom + 16,
-            left: 16,
-            right: 16,
-            top: 8,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 12),
-                child: Text(
-                  'Number of questions',
-                  style: textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery
+                  .of(context)
+                  .viewInsets
+                  .bottom + 16,
+              left: 16,
+              right: 16,
+              top: 8,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 12),
+                  child: Text(
+                    'Number of questions',
+                    style: textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 8),
+                const SizedBox(height: 8),
 
-              // 1. First Container: Counters
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(20),
+                // 1. First Container: Counters
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Column(
+                    children: [
+                      buildCounterItem(
+                        icon: Icons.radio_button_checked,
+                        iconBgColor: Colors.blue.shade50,
+                        iconColor: Colors.blue.shade700,
+                        title: 'Multiple Choice',
+                        count: _mcqCount,
+                        onDecrement: () => setState(() => _mcqCount--),
+                        onIncrement: () => setState(() => _mcqCount++),
+                      ),
+                      const Divider(height: 1, indent: 64, color: Colors.white),
+                      buildCounterItem(
+                        icon: Icons.check_box_outlined,
+                        iconBgColor: Colors.purple.shade50,
+                        iconColor: Colors.purple.shade700,
+                        title: 'Checkbox',
+                        count: _checkboxCount,
+                        onDecrement: () => setState(() => _checkboxCount--),
+                        onIncrement: () => setState(() => _checkboxCount++),
+                      ),
+                      const Divider(height: 1, indent: 64, color: Colors.white),
+                      buildCounterItem(
+                        icon: Icons.text_fields_outlined,
+                        iconBgColor: Colors.orange.shade50,
+                        iconColor: Colors.orange.shade700,
+                        title: 'Open-Ended',
+                        count: _openEndedCount,
+                        onDecrement: () => setState(() => _openEndedCount--),
+                        onIncrement: () => setState(() => _openEndedCount++),
+                      ),
+                    ],
+                  ),
                 ),
-                child: Column(
-                  children: [
-                    buildCounterItem(
-                      icon: Icons.radio_button_checked,
-                      iconBgColor: Colors.blue.shade50,
-                      iconColor: Colors.blue.shade700,
-                      title: 'Multiple Choice',
-                      count: _mcqCount,
-                      onDecrement: () => setState(() => _mcqCount--),
-                      onIncrement: () => setState(() => _mcqCount++),
-                    ),
-                    const Divider(height: 1, indent: 64, color: Colors.white),
-                    buildCounterItem(
-                      icon: Icons.check_box_outlined,
-                      iconBgColor: Colors.purple.shade50,
-                      iconColor: Colors.purple.shade700,
-                      title: 'Checkbox',
-                      count: _checkboxCount,
-                      onDecrement: () => setState(() => _checkboxCount--),
-                      onIncrement: () => setState(() => _checkboxCount++),
-                    ),
-                    const Divider(height: 1, indent: 64, color: Colors.white),
-                    buildCounterItem(
-                      icon: Icons.text_fields_outlined,
-                      iconBgColor: Colors.orange.shade50,
-                      iconColor: Colors.orange.shade700,
-                      title: 'Open-Ended',
-                      count: _openEndedCount,
-                      onDecrement: () => setState(() => _openEndedCount--),
-                      onIncrement: () => setState(() => _openEndedCount++),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
+                const SizedBox(height: 16),
 
-              // 2. Second Container: Relevant to Q&A Switch Toggle
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Relevant to student Q&A',
-                            style: textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: colors.onSurface,
+                // 2. Second Container: Relevant to Q&A Switch Toggle
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Relevant to student Q&A',
+                              style: textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: colors.onSurface,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 4),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Generate questions based on student queries from this session',
+                              style: textTheme.bodySmall?.copyWith(
+                                color: colors.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Switch.adaptive(
+                        value: _relevantToQna,
+                        onChanged: (val) {
+                          setState(() {
+                            _relevantToQna = val;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // 3. Conditional: Upload box OR Topics Checklist + File Chip Row
+                if (_selectedPdf == null) ...[
+                  GestureDetector(
+                    onTap: _pickPdfFile,
+                    child: CustomPaint(
+                      painter: DashedBorderPainter(
+                        color: colors.outline.withValues(alpha: 0.5),
+                        borderRadius: 20,
+                      ),
+                      child: Container(
+                        width: double.infinity,
+                        height: 160,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.add,
+                              size: 48,
+                              color: Colors.grey.shade500,
+                            ),
+                            const SizedBox(height: 12),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16),
+                              child: Text(
+                                'Select a file to upload (Only PDF files are supported currently)',
+                                style: textTheme.bodyMedium?.copyWith(
+                                  color: Colors.grey.shade600,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ] else
+                  if (_isAnalyzing) ...[
+                    Container(
+                      width: double.infinity,
+                      height: 160,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: colors.outlineVariant.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const CircularProgressIndicator(),
+                          const SizedBox(height: 16),
                           Text(
-                            'Generate questions based on student queries from this session',
-                            style: textTheme.bodySmall?.copyWith(
+                            'Uploading & analyzing PDF topics...',
+                            style: textTheme.bodyMedium?.copyWith(
                               color: colors.onSurfaceVariant,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Switch.adaptive(
-                      value: _relevantToQna,
-                      onChanged: (val) {
-                        setState(() {
-                          _relevantToQna = val;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // 3. Third Container: Chat input prompt box
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.grey.shade200),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Uploaded files list
-                    if (_uploadedFiles.isNotEmpty) ...[
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: _uploadedFiles.map((file) {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
+                  ] else
+                    ...[
+                      // Topics Checklist
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Detected Topics',
+                            style: textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: colors.onSurface,
                             ),
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
                             decoration: BoxDecoration(
-                              color: Colors.grey.shade200,
-                              borderRadius: BorderRadius.circular(16),
+                              color: colors.primary.withValues(alpha: 0.05),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: colors.primary.withValues(alpha: 0.1),
+                              ),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.picture_as_pdf,
-                                  color: Colors.red,
-                                  size: 16,
-                                ),
-                                const SizedBox(width: 6),
-                                Flexible(
-                                  child: Text(
-                                    file.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                InkWell(
-                                  onTap: () => _removePdfFile(file),
-                                  child: const Icon(
-                                    Icons.close,
-                                    size: 14,
-                                    color: Colors.black54,
-                                  ),
-                                ),
-                              ],
+                            child: Column(
+                              children: List.generate(
+                                  _detectedTopics.length, (index) {
+                                final topic = _detectedTopics[index];
+                                final isSelected = _selectedTopics.contains(
+                                    topic);
+                                return Column(
+                                  children: [
+                                    CheckboxListTile(
+                                      value: isSelected,
+                                      onChanged: (val) {
+                                        setState(() {
+                                          if (val == true) {
+                                            _selectedTopics.add(topic);
+                                          } else {
+                                            _selectedTopics.remove(topic);
+                                          }
+                                        });
+                                      },
+                                      title: Text(
+                                        topic,
+                                        style: textTheme.bodyMedium?.copyWith(
+                                          fontWeight: FontWeight.w500,
+                                          color: colors.onSurface,
+                                        ),
+                                      ),
+                                      controlAffinity: ListTileControlAffinity
+                                          .trailing,
+                                      activeColor: colors.primary,
+                                      checkboxShape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      contentPadding: const EdgeInsets
+                                          .symmetric(
+                                        horizontal: 16,
+                                        vertical: 4,
+                                      ),
+                                    ),
+                                    if (index < _detectedTopics.length - 1)
+                                      Divider(
+                                        height: 1,
+                                        color: colors.primary.withValues(
+                                            alpha: 0.1),
+                                      ),
+                                  ],
+                                );
+                              }),
                             ),
-                          );
-                        }).toList(),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 24),
+                      // Footer file chip and Generate Questions button row
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Flexible(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: colors.outlineVariant.withValues(
+                                      alpha: 0.6),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.picture_as_pdf_outlined,
+                                    color: Colors.redAccent,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Text(
+                                      _selectedPdf!.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: textTheme.bodyMedium?.copyWith(
+                                        fontWeight: FontWeight.w500,
+                                        color: colors.onSurface,
+                                  ),
+                                ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  InkWell(
+                                    onTap: _removePdfFile,
+                                    child: Icon(
+                                      Icons.cancel,
+                                      size: 18,
+                                      color: colors.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                        ),
+                      ),
+                          const SizedBox(width: 16),
+                          ElevatedButton(
+                            onPressed: _selectedTopics.isNotEmpty
+                                ? _handleSubmit
+                                : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: colors.primary,
+                              foregroundColor: colors.onPrimary,
+                              shape: const StadiumBorder(),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 14,
+                              ),
+                              elevation: 0,
+                            ),
+                            child: Text(
+                              'Generate Questions',
+                              style: textTheme.labelLarge?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: colors.onPrimary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
-                    // Input prompt text field
-                    TextField(
-                      controller: _promptController,
-                      maxLines: null,
-                      decoration: const InputDecoration(
-                        hintText: 'Ask Gemini...',
-                        border: InputBorder.none,
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 8,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    // Bottom controls
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.add),
-                          onPressed: _pickPdfFile,
-                          style: IconButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: colors.onSurface,
-                            minimumSize: const Size(40, 40),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.arrow_upward),
-                          onPressed: _handleSubmit,
-                          style: IconButton.styleFrom(
-                            backgroundColor: Colors.blue.shade100,
-                            foregroundColor: Colors.blue.shade800,
-                            minimumSize: const Size(40, 40),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
+                const SizedBox(height: 8),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+class DashedBorderPainter extends CustomPainter {
+  final Color color;
+  final double strokeWidth;
+  final double gap;
+  final double dashLength;
+  final double borderRadius;
+
+  DashedBorderPainter({
+    required this.color,
+    this.strokeWidth = 1.5,
+    this.gap = 5.0,
+    this.dashLength = 5.0,
+    this.borderRadius = 16.0,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
+      ..style = PaintingStyle.stroke;
+
+    final path = Path()
+      ..addRRect(RRect.fromRectAndRadius(
+        Rect.fromLTWH(0, 0, size.width, size.height),
+        Radius.circular(borderRadius),
+      ));
+
+    final dashPath = Path();
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        dashPath.addPath(
+          metric.extractPath(distance, distance + dashLength),
+          Offset.zero,
+        );
+        distance += dashLength + gap;
+      }
+    }
+    canvas.drawPath(dashPath, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

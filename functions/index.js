@@ -1,0 +1,108 @@
+const { onRequest, onCall } = require("firebase-functions/v2/https");
+const admin = require("firebase-admin");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+
+admin.initializeApp();
+
+// Initialize Gemini with your API Key
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "YOUR_FALLBACK_KEY");
+
+/**
+ * 1. Extract Topics from a PDF
+ */
+exports.extractTopicsFromPdf = onCall(async (request) => {
+  const { fileUrl } = request.data;
+  
+  if (!fileUrl) {
+    throw new Error("Missing PDF fileUrl parameter.");
+  }
+
+  // Fetch the PDF file as bytes
+  const response = await fetch(fileUrl);
+  const pdfBuffer = await response.arrayBuffer();
+
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+  const prompt = "Analyze this PDF document and list the top 5 distinct study/meeting topics covered in it.";
+
+  const result = await model.generateContent([
+    {
+      inlineData: {
+        data: Buffer.from(pdfBuffer).toString("base64"),
+        mimeType: "application/pdf"
+      }
+    },
+    prompt
+  ]);
+
+  // Request structural output format or clean it up
+  const text = result.response.text();
+  // Parse lines or use Gemini structured output schema
+  const topics = text.split("\n")
+    .map(line => line.replace(/^[\d\-\*\s\.]+/g, "").trim())
+    .filter(line => line.length > 0)
+    .slice(0, 5);
+
+  return { topics };
+});
+
+/**
+ * 2. Generate Structured Quiz Questions matching Flutter Model
+ */
+exports.generateQuizQuestions = onCall(async (request) => {
+  const { fileUrl, selectedTopics, mcqCount, checkboxCount, openCount } = request.data;
+
+  const response = await fetch(fileUrl);
+  const pdfBuffer = await response.arrayBuffer();
+
+  const model = genAI.getGenerativeModel({ 
+    model: "gemini-1.5-flash",
+    // Force structured JSON output matching our exact schema
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: "object",
+        properties: {
+          questions: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                questionText: { type: "string" },
+                type: { type: "string", enum: ["multiple_choice", "checkbox", "open_ended"] },
+                options: { type: "array", items: { type: "string" } },
+                correctAnswers: { type: "array", items: { type: "string" } }
+              },
+              required: ["questionText", "type", "options", "correctAnswers"]
+            }
+          }
+        },
+        required: ["questions"]
+      }
+    }
+  });
+
+  const prompt = `
+    Based on the attached PDF document, generate a set of educational quiz questions targeting these specific topics: ${selectedTopics.join(", ")}.
+    
+    You must generate exactly:
+    - ${mcqCount} multiple_choice questions (single correct answer in correctAnswers)
+    - ${checkboxCount} checkbox questions (multiple correct answers in correctAnswers)
+    - ${openCount} open_ended questions (options and correctAnswers should be empty arrays)
+    
+    Return the output matching the requested JSON schema.
+  `;
+
+  const result = await model.generateContent([
+    {
+      inlineData: {
+        data: Buffer.from(pdfBuffer).toString("base64"),
+        mimeType: "application/pdf"
+      }
+    },
+    prompt
+  ]);
+
+  const quizData = JSON.parse(result.response.text());
+  return quizData;
+});

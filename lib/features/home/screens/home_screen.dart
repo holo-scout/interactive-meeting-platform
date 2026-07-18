@@ -1335,81 +1335,123 @@ class SessionCard extends StatelessWidget {
                     iconSize: 18,
                     tooltip: 'Show QR code',
                     onPressed: () {
-                      showDialog(
+                      showModalBottomSheet(
                         context: context,
+                        isScrollControlled: true,
+                        backgroundColor: colors.surfaceContainer,
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: BorderRadius.vertical(top: Radius
+                              .circular(28)),
+                        ),
                         builder: (context) {
-                          final dialogColors = Theme
+                          final sheetColors = Theme
                               .of(context)
                               .colorScheme;
-                          final dialogTextTheme = Theme
+                          final sheetTextTheme = Theme
                               .of(context)
                               .textTheme;
 
-                          return AlertDialog(
-                            title: Text(
-                              'Scan to Join',
-                              style: dialogTextTheme.titleLarge?.copyWith(
-                                  fontWeight: FontWeight.bold),
-                              textAlign: TextAlign.center,
-                            ),
-                            content: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  session.title,
-                                  style: dialogTextTheme.bodyMedium?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: dialogColors.onSurfaceVariant,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 16),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(16),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(
-                                            alpha: 0.1),
-                                        blurRadius: 10,
-                                        offset: const Offset(0, 4),
+                          return SafeArea(
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                    16, 8, 16, 24),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 32,
+                                      height: 4,
+                                      decoration: BoxDecoration(
+                                        color: sheetColors.onSurfaceVariant
+                                            .withValues(alpha: 0.4),
+                                        borderRadius: BorderRadius.circular(2),
                                       ),
-                                    ],
-                                  ),
-                                  padding: const EdgeInsets.all(16),
-                                  child: QrImageView(
-                                    data: session.joinCode,
-                                    version: QrVersions.auto,
-                                    size: 200.0,
-                                    gapless: false,
-                                    eyeStyle: const QrEyeStyle(
-                                      eyeShape: QrEyeShape.square,
-                                      color: Colors.black,
                                     ),
-                                    dataModuleStyle: const QrDataModuleStyle(
-                                      dataModuleShape: QrDataModuleShape.square,
-                                      color: Colors.black,
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'Scan to Join',
+                                      style: sheetTextTheme.headlineMedium
+                                          ?.copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        color: sheetColors.onSurface,
+                                      ),
+                                      textAlign: TextAlign.center,
                                     ),
-                                  ),
+                                    const SizedBox(height: 24),
+                                    Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[50],
+                                        borderRadius: BorderRadius.circular(24),
+                                      ),
+                                      padding: const EdgeInsets.all(32),
+                                      child: SizedBox(
+                                        width: 200,
+                                        height: 200,
+                                        child: QrImageView(
+                                          data: session.joinCode,
+                                          version: QrVersions.auto,
+                                          gapless: false,
+                                          eyeStyle: QrEyeStyle(
+                                            eyeShape: QrEyeShape.circle,
+                                            color: sheetColors.primary,
+                                          ),
+                                          dataModuleStyle: QrDataModuleStyle(
+                                            dataModuleShape: QrDataModuleShape
+                                                .circle,
+                                            color: sheetColors.primary,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 24),
+                                    Text(
+                                      'Join Code: ${session.joinCode}',
+                                      style: sheetTextTheme.titleMedium
+                                          ?.copyWith(
+                                        fontFamily: 'monospace',
+                                        fontWeight: FontWeight.bold,
+                                        color: sheetColors.onSurfaceVariant,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    OutlinedButton.icon(
+                                      onPressed: () async {
+                                        await Clipboard.setData(
+                                          ClipboardData(text: session.joinCode),
+                                        );
+                                        if (context.mounted) {
+                                          ScaffoldMessenger
+                                              .of(context)
+                                              .showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                  'Join code copied!'),
+                                              duration: Duration(seconds: 2),
+                                            ),
+                                          );
+                                        }
+                                      },
+                                      icon: const Icon(
+                                          Icons.copy_rounded, size: 16),
+                                      label: const Text('Copy Code'),
+                                      style: OutlinedButton.styleFrom(
+                                        shape: const StadiumBorder(),
+                                        side: BorderSide(
+                                          color: sheetColors.outline.withValues(
+                                              alpha: 0.5),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 24,
+                                          vertical: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Join Code: ${session.joinCode}',
-                                  style: dialogTextTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: dialogColors.primary,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text('Close'),
                               ),
-                            ],
+                            ),
                           );
                         },
                       );
