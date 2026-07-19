@@ -466,6 +466,14 @@ class SessionService {
         .update({'folder': folderName});
   }
 
+  // Update a session's general fields
+  Future<void> updateSession(Session session) async {
+    await FirebaseFirestore.instance
+        .collection('sessions')
+        .doc(session.sessionID)
+        .set(session.toMap(), SetOptions(merge: true));
+  }
+
   // Helper to generate a random 6-character alphanumeric code
   String _generateRandomCode() {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';

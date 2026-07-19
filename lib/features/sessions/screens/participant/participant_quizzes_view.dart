@@ -104,6 +104,56 @@ class _ParticipantQuizzesViewState extends State<ParticipantQuizzesView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: hasTaken
+                                    ? colors.primaryContainer
+                                    : colors.surfaceContainerHigh,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                hasTaken ? 'Submitted' : 'Not Submitted',
+                                style: textTheme.labelSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: hasTaken
+                                      ? colors.onPrimaryContainer
+                                      : colors.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                            if (hasTaken) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: submission.isGraded
+                                      ? colors.tertiaryContainer
+                                      : colors.secondaryContainer,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  submission.isGraded ? 'Graded' : 'Pending',
+                                  style: textTheme.labelSmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: submission.isGraded
+                                        ? colors.onTertiaryContainer
+                                        : colors.onSecondaryContainer,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 12),
                         Text(
                           quiz.title,
                           style: textTheme.titleLarge?.copyWith(
@@ -134,18 +184,16 @@ class _ParticipantQuizzesViewState extends State<ParticipantQuizzesView> {
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             if (hasTaken) ...[
-                              Text(
-                                submission.isGraded
-                                    ? 'Score: ${submission.score}/${quiz.questions.length}'
-                                    : 'Submitted (Awaiting Grading)',
-                                style: textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: submission.isGraded
-                                      ? colors.primary
-                                      : colors.secondary,
+                              if (submission.isGraded) ...[
+                                Text(
+                                  'Score: ${submission.score}/${quiz.questions.length}',
+                                  style: textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: colors.primary,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 12),
+                                const SizedBox(width: 12),
+                              ],
                               FilledButton.icon(
                                 onPressed: () {
                                   Navigator.push(
@@ -350,7 +398,7 @@ class _QuizTakerViewState extends State<_QuizTakerView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Question ${index + 1}: ${question.questionText}',
+                      '${index + 1}. ${question.questionText}',
                       style: textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: colors.onSurface,
@@ -607,7 +655,7 @@ class _QuizResultsView extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            'Question ${idx + 1}: ${question.questionText}',
+                            '${idx + 1}. ${question.questionText}',
                             style: textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: colors.onSurface,

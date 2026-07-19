@@ -48,6 +48,10 @@ class MyApp extends StatelessWidget {
           surfaceTintColor: Colors.transparent,
           elevation: 0,
         ),
+        snackBarTheme: const SnackBarThemeData(
+          behavior: SnackBarBehavior.floating,
+          insetPadding: EdgeInsets.only(bottom: 16, left: 16, right: 16),
+        ),
         useMaterial3: true,
       ),
       home: const AuthGate(),

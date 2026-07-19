@@ -603,98 +603,105 @@ class _SessionPageTemplateState extends State<_SessionPageTemplate> {
       ),
     ];
 
-    return BottomBar(
-      layout: BottomBarLayout(
-        width: actionIcon == null ? 220 : 280,
-        borderRadius: BorderRadius.circular(50),
-      ),
-      theme: BottomBarThemeData(
-        barDecoration: BoxDecoration(
-          color: colors.surfaceContainer,
-          borderRadius: BorderRadius.circular(50),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 16,
-              spreadRadius: 2,
-              offset: const Offset(0, 4),
+    return PopScope(
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) {
+          ScaffoldMessenger.of(context).clearSnackBars();
+        }
+      },
+      child: Scaffold(
+        body: BottomBar(
+          layout: BottomBarLayout(
+            width: actionIcon == null ? 220 : 280,
+            borderRadius: BorderRadius.circular(50),
+          ),
+          theme: BottomBarThemeData(
+            barDecoration: BoxDecoration(
+              color: colors.surfaceContainer,
+              borderRadius: BorderRadius.circular(50),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 16,
+                  spreadRadius: 2,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
-      motion: const BottomBarMotion.cupertino(
-        preset: BottomBarCupertinoMotion.bouncy,
-        extraBounce: 0.02,
-        transition: BottomBarTransition.slide,
-      ),
-      scrollBehavior: const BottomBarScrollBehavior(hideOnScroll: true),
-      showIcon: false,
-      body: Scaffold(
-        body: NestedScrollView(
-          headerSliverBuilder: (context, innerBoxIsScrolled) =>
-          [
-            SliverAppBar(
-              title: Text(widget.session.title),
-              floating: true,
-              snap: true,
-              backgroundColor: Colors.transparent,
-              surfaceTintColor: Colors.transparent,
-              elevation: 0,
-              scrolledUnderElevation: 0,
-            ),
-          ],
-          body: IndexedStack(index: _index, children: tabPages),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _buildNavigationIcon(
-              icon: Icons.forum_outlined,
-              selectedIcon: Icons.forum,
-              index: 0,
-              tooltip: 'Q&A',
-            ),
-            _buildNavigationIcon(
-              icon: Icons.poll_outlined,
-              selectedIcon: Icons.poll,
-              index: 1,
-              tooltip: 'Polls',
-            ),
-            _buildNavigationIcon(
-              icon: Icons.quiz_outlined,
-              selectedIcon: Icons.quiz,
-              index: 2,
-              tooltip: 'Quizzes',
-            ),
-            if (actionIcon != null) ...[
-              SizedBox(
-                height: 28,
-                child: VerticalDivider(color: colors.outlineVariant),
-              ),
-              _buildActionIcon(
-                icon: actionIcon,
-                tooltip: actionTooltip,
-                onPressed: () {
-                  if (!widget.isAdministrator && _index == 0) {
-                    _showAskQuestionDialog();
-                  } else if (widget.isAdministrator && _index == 1) {
-                    _showCreatePollDialog();
-                  } else if (widget.isAdministrator && _index == 2) {
-                    _showCreateQuizDialog();
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                          content: Text(
-                              '$actionTooltip action is coming soon.')),
-                    );
-                  }
-                },
+          ),
+          motion: const BottomBarMotion.cupertino(
+            preset: BottomBarCupertinoMotion.bouncy,
+            extraBounce: 0.02,
+            transition: BottomBarTransition.slide,
+          ),
+          scrollBehavior: const BottomBarScrollBehavior(hideOnScroll: true),
+          showIcon: false,
+          body: NestedScrollView(
+            headerSliverBuilder: (context, innerBoxIsScrolled) =>
+            [
+              SliverAppBar(
+                title: Text(widget.session.title),
+                floating: true,
+                snap: true,
+                backgroundColor: Colors.transparent,
+                surfaceTintColor: Colors.transparent,
+                elevation: 0,
+                scrolledUnderElevation: 0,
               ),
             ],
-          ],
+            body: IndexedStack(index: _index, children: tabPages),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildNavigationIcon(
+                  icon: Icons.forum_outlined,
+                  selectedIcon: Icons.forum,
+                  index: 0,
+                  tooltip: 'Q&A',
+                ),
+                _buildNavigationIcon(
+                  icon: Icons.poll_outlined,
+                  selectedIcon: Icons.poll,
+                  index: 1,
+                  tooltip: 'Polls',
+                ),
+                _buildNavigationIcon(
+                  icon: Icons.quiz_outlined,
+                  selectedIcon: Icons.quiz,
+                  index: 2,
+                  tooltip: 'Quizzes',
+                ),
+                if (actionIcon != null) ...[
+                  SizedBox(
+                    height: 28,
+                    child: VerticalDivider(color: colors.outlineVariant),
+                  ),
+                  _buildActionIcon(
+                    icon: actionIcon,
+                    tooltip: actionTooltip,
+                    onPressed: () {
+                      if (!widget.isAdministrator && _index == 0) {
+                        _showAskQuestionDialog();
+                      } else if (widget.isAdministrator && _index == 1) {
+                        _showCreatePollDialog();
+                      } else if (widget.isAdministrator && _index == 2) {
+                        _showCreateQuizDialog();
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                              content: Text(
+                                  '$actionTooltip action is coming soon.')),
+                        );
+                      }
+                    },
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
       ),
     );

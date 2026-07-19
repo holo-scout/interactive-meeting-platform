@@ -50,7 +50,34 @@ exports.extractTopicsFromPdf = onCall(async (request) => {
  * 2. Generate Structured Quiz Questions matching Flutter Model
  */
 exports.generateQuizQuestions = onCall(async (request) => {
-  const { fileUrl, selectedTopics, mcqCount, checkboxCount, openCount } = request.data;
+  const { fileUrl, selectedTopics, mcqCount, checkboxCount, openCount, sessionId, relevantToQna } = request.data;
+
+  // 1. Fetch Q&A Questions if toggled active
+  let studentQuestionsText = "";
+  if (relevantToQna && sessionId) {
+    try {
+      const questionsSnapshot = await admin.firestore()
+        .collection('sessions')
+        .doc(sessionId)
+        .collection('questions')
+        .limit(20)
+        .get();
+
+      const questionsList = [];
+      questionsSnapshot.forEach(doc => {
+        const qData = doc.data();
+        if (qData && qData.content) {
+          questionsList.push(`- ${qData.content}`);
+        }
+      });
+
+      if (questionsList.length > 0) {
+        studentQuestionsText = questionsList.join("\n");
+      }
+    } catch (error) {
+      console.error("Failed to fetch session Q&As:", error);
+    }
+  }
 
   const response = await fetch(fileUrl);
   const pdfBuffer = await response.arrayBuffer();
@@ -90,6 +117,16 @@ exports.generateQuizQuestions = onCall(async (request) => {
     - ${checkboxCount} checkbox questions (multiple correct answers in correctAnswers)
     - ${openCount} open_ended questions (options and correctAnswers should be empty arrays)
     
+    CRITICAL RULES:
+    1. Prioritize generating questions that are strictly related to the content in the PDF. Under all circumstances, the content in the PDF is the absolute source of truth. If any student Q&A topic is irrelevant to the PDF content, ignore it and prioritize the PDF content.
+    2. ${relevantToQna && studentQuestionsText ? `
+       The following are recent student questions from this session's Q&A board:
+       ${studentQuestionsText}
+       
+       If these student questions are relevant to the PDF content, make SOME (but not all) of the generated questions relevant to these student queries.
+       NOTE: Not every generated quiz question has to be relevant to these student Q&As. For example, if there is only 1 student question, but you are generating 3 or more quiz questions, only 1 of the generated questions should address that student's query, while the remaining questions should be based on other topics inside the PDF.
+       ` : 'Do not consider Q&As; base questions strictly on the PDF.'}
+       
     Return the output matching the requested JSON schema.
   `;
 

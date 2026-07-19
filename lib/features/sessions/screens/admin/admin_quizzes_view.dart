@@ -1438,7 +1438,13 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
     final colors = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    return Scaffold(
+    return PopScope(
+        onPopInvokedWithResult: (didPop, result) {
+          if (didPop) {
+            ScaffoldMessenger.of(context).clearSnackBars();
+          }
+        },
+        child: Scaffold(
       appBar: AppBar(
         leadingWidth: 200,
         leading: Padding(
@@ -1776,7 +1782,7 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
           ],
         ),
       ),
-    );
+        ));
   }
 
   void _saveQuestions() async {

@@ -1104,6 +1104,9 @@ class SessionCard extends StatelessWidget {
   final VoidCallback onMoveToFolder;
 
   String _getExpiryText(DateTime expiry) {
+    if (expiry.year >= 2100) {
+      return 'No Expiry';
+    }
     final now = DateTime.now();
     final difference = expiry.difference(now);
 
@@ -1212,41 +1215,31 @@ class SessionCard extends StatelessWidget {
                     iconSize: 22,
                     onPressed: onFavoriteToggle,
                   ),
-                  // Popup Menu for options
-                  PopupMenuButton<String>(
-                    onSelected: (val) {
-                      if (val == 'delete') {
-                        onDelete();
-                      } else if (val == 'view') {
-                        onTap();
-                      } else if (val == 'folder') {
-                        onMoveToFolder();
-                      }
-                    },
-                    itemBuilder: (context) =>
-                    [
-                      const PopupMenuItem(
-                        value: 'view',
-                        child: Text('Enter Session'),
-                      ),
-                      const PopupMenuItem(
-                        value: 'folder',
-                        child: Text('Move to Folder...'),
-                      ),
-                      PopupMenuItem(
-                        value: 'delete',
-                        child: Text(
-                          isShortcut ? 'Remove Shortcut' : 'Move to Trash',
-                          style: TextStyle(
-                            color: colors.error,
-                          ),
-                        ),
-                      ),
-                    ],
+                  IconButton(
                     icon: Icon(
                       Icons.more_vert_rounded,
                       color: colors.onSurfaceVariant,
                     ),
+                    iconSize: 22,
+                    onPressed: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        showDragHandle: true,
+                        useSafeArea: true,
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: BorderRadius.vertical(top: Radius
+                              .circular(24)),
+                        ),
+                        builder: (context) {
+                          return _SessionOptionsBottomSheet(
+                            session: session,
+                            isShortcut: isShortcut,
+                            onDelete: onDelete,
+                          );
+                        },
+                      );
+                    },
                   ),
                 ],
               ),
@@ -1462,6 +1455,583 @@ class SessionCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _EditFieldDialog extends StatefulWidget {
+  final String title;
+  final String initialValue;
+  final int maxLength;
+
+  const _EditFieldDialog({
+    required this.title,
+    required this.initialValue,
+    required this.maxLength,
+  });
+
+  @override
+  State<_EditFieldDialog> createState() => _EditFieldDialogState();
+}
+
+class _EditFieldDialogState extends State<_EditFieldDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: TextField(
+        controller: _controller,
+        maxLength: widget.maxLength,
+        decoration: InputDecoration(
+          border: const OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(12)),
+          ),
+          counterText: '${_controller.text.length}/${widget.maxLength}',
+        ),
+        onChanged: (text) {
+          setState(() {});
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            Navigator.pop(context, _controller.text.trim());
+          },
+          child: const Text('OK'),
+        ),
+      ],
+    );
+  }
+}
+
+class _SessionOptionsBottomSheet extends StatefulWidget {
+  final Session session;
+  final bool isShortcut;
+  final VoidCallback onDelete;
+
+  const _SessionOptionsBottomSheet({
+    required this.session,
+    required this.isShortcut,
+    required this.onDelete,
+  });
+
+  @override
+  State<_SessionOptionsBottomSheet> createState() =>
+      _SessionOptionsBottomSheetState();
+}
+
+class _SessionOptionsBottomSheetState
+    extends State<_SessionOptionsBottomSheet> {
+  late String _title;
+  late String _subtitle;
+  late String _folder;
+  late bool _isActive;
+  late DateTime _expiry;
+  late String _expiryLabel;
+
+  @override
+  void initState() {
+    super.initState();
+    _title = widget.session.title;
+    _subtitle = widget.session.subtitle;
+    _folder = widget.session.folder;
+    _isActive = !widget.session.isExpired;
+    _expiry = widget.session.expiry;
+    _expiryLabel = _getExpiryOptionLabel(_expiry);
+  }
+
+  String _getExpiryOptionLabel(DateTime expiry) {
+    if (expiry.year >= 2100) return 'None';
+    final now = DateTime.now();
+    if (now.isAfter(expiry)) return 'Expired';
+    final diff = expiry.difference(now);
+    if (diff.inDays > 0) {
+      return '${diff.inDays} Hours';
+    }
+    final totalMinutes = diff.inMinutes;
+    final hours = totalMinutes ~/ 60;
+    final mins = totalMinutes % 60;
+    if (hours > 0) {
+      return '$hours Hours $mins Minutes';
+    } else {
+      return '$mins Minutes';
+    }
+  }
+
+  void _showFolderSelectorDialog() {
+    final colors = Theme
+        .of(context)
+        .colorScheme;
+    final textTheme = Theme
+        .of(context)
+        .textTheme;
+    final folders = SessionService().getFolders();
+
+    showDialog(
+      context: context,
+      builder: (context) =>
+          AlertDialog(
+            title: Text('Move to Folder', style: textTheme.titleLarge),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.folder_open),
+                    title: const Text('Default'),
+                    trailing: _folder == 'Default' || _folder.isEmpty
+                        ? Icon(Icons.check, color: colors.primary)
+                        : null,
+                    onTap: () {
+                      setState(() {
+                        _folder = 'Default';
+                      });
+                      Navigator.pop(context);
+                    },
+                  ),
+                  const Divider(),
+                  ...folders.map(
+                        (folder) =>
+                        ListTile(
+                          leading: const Icon(Icons.folder),
+                          title: Text(folder.name),
+                          trailing: _folder == folder.name
+                              ? Icon(Icons.check, color: colors.primary)
+                              : null,
+                          onTap: () {
+                            setState(() {
+                              _folder = folder.name;
+                            });
+                            Navigator.pop(context);
+                          },
+                        ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  void _showExpirySelectionDialog() {
+    final textTheme = Theme
+        .of(context)
+        .textTheme;
+
+    showDialog(
+      context: context,
+      builder: (context) =>
+          AlertDialog(
+            title: Text('Select Expiry', style: textTheme.titleLarge),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    title: const Text('30 Minutes'),
+                    onTap: () {
+                      setState(() {
+                        _expiry =
+                            DateTime.now().add(const Duration(minutes: 30));
+                        _expiryLabel = '30 Minutes';
+                      });
+                      Navigator.pop(context);
+                    },
+                  ),
+                  ListTile(
+                    title: const Text('1 Hour'),
+                    onTap: () {
+                      setState(() {
+                        _expiry = DateTime.now().add(const Duration(hours: 1));
+                        _expiryLabel = '1 Hour';
+                      });
+                      Navigator.pop(context);
+                    },
+                  ),
+                  ListTile(
+                    title: const Text('3 Hours'),
+                    onTap: () {
+                      setState(() {
+                        _expiry = DateTime.now().add(const Duration(hours: 3));
+                        _expiryLabel = '3 Hours';
+                      });
+                      Navigator.pop(context);
+                    },
+                  ),
+                  ListTile(
+                    title: const Text('24 Hours'),
+                    onTap: () {
+                      setState(() {
+                        _expiry = DateTime.now().add(const Duration(days: 1));
+                        _expiryLabel = '24 Hours';
+                      });
+                      Navigator.pop(context);
+                    },
+                  ),
+                  ListTile(
+                    title: const Text('None'),
+                    onTap: () {
+                      setState(() {
+                        _expiry = DateTime(2100, 1, 1);
+                        _expiryLabel = 'None';
+                      });
+                      Navigator.pop(context);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+    );
+  }
+
+  Widget _buildConfigTile({
+    required IconData icon,
+    required String label,
+    required String value,
+    required ColorScheme colors,
+    required TextTheme textTheme,
+    VoidCallback? onTap,
+    bool enabled = true,
+  }) {
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: enabled ? colors.onSurfaceVariant : Colors.grey.shade400,
+            ),
+            const SizedBox(width: 16),
+            Text(
+              label,
+              style: textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w500,
+                color: enabled ? colors.onSurface : Colors.grey.shade400,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        value.isEmpty ? 'None' : value,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: textTheme.bodyLarge?.copyWith(
+                          color: enabled ? colors.onSurfaceVariant : Colors.grey
+                              .shade400,
+                        ),
+                      ),
+                    ),
+                    if (onTap != null) ...[
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.chevron_right,
+                        size: 18,
+                        color: enabled ? colors.onSurfaceVariant : Colors.grey
+                            .shade400,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActiveTile({
+    required IconData icon,
+    required String label,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+    required ColorScheme colors,
+    required TextTheme textTheme,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Icon(icon, color: colors.onSurfaceVariant),
+          const SizedBox(width: 16),
+          Text(
+            label,
+            style: textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w500,
+              color: colors.onSurface,
+            ),
+          ),
+          const Spacer(),
+          Switch.adaptive(
+            value: value,
+            onChanged: onChanged,
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme
+        .of(context)
+        .colorScheme;
+    final textTheme = Theme
+        .of(context)
+        .textTheme;
+    final bottomPadding = MediaQuery
+        .of(context)
+        .padding
+        .bottom;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery
+            .of(context)
+            .viewInsets
+            .bottom + (bottomPadding > 0 ? bottomPadding : 16.0),
+        left: 16,
+        right: 16,
+        top: 8,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Group 1: Title, Subtitle, Folder
+          Container(
+            decoration: BoxDecoration(
+              color: colors.primary.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              children: [
+                _buildConfigTile(
+                  icon: Icons.bookmark_outline_rounded,
+                  label: 'Title',
+                  value: _title,
+                  colors: colors,
+                  textTheme: textTheme,
+                  onTap: () async {
+                    final val = await showDialog<String>(
+                      context: context,
+                      builder: (context) =>
+                          _EditFieldDialog(
+                            title: 'Edit Title',
+                            initialValue: _title,
+                            maxLength: 20,
+                          ),
+                    );
+                    if (val != null) {
+                      setState(() {
+                        _title = val;
+                      });
+                    }
+                  },
+                ),
+                const Divider(height: 8, thickness: 2, color: Colors.white),
+                _buildConfigTile(
+                  icon: Icons.notes_rounded,
+                  label: 'Subtitle',
+                  value: _subtitle,
+                  colors: colors,
+                  textTheme: textTheme,
+                  onTap: () async {
+                    final val = await showDialog<String>(
+                      context: context,
+                      builder: (context) =>
+                          _EditFieldDialog(
+                            title: 'Edit Subtitle',
+                            initialValue: _subtitle,
+                            maxLength: 50,
+                          ),
+                    );
+                    if (val != null) {
+                      setState(() {
+                        _subtitle = val;
+                      });
+                    }
+                  },
+                ),
+                const Divider(height: 8, thickness: 2, color: Colors.white),
+                _buildConfigTile(
+                  icon: Icons.folder_open_rounded,
+                  label: 'Folder',
+                  value: _folder.isEmpty ? 'Default' : _folder,
+                  colors: colors,
+                  textTheme: textTheme,
+                  onTap: _showFolderSelectorDialog,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Group 2: Active, Expiry
+          Container(
+            decoration: BoxDecoration(
+              color: colors.primary.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              children: [
+                _buildActiveTile(
+                  icon: Icons.check_circle_outline_rounded,
+                  label: 'Active',
+                  value: _isActive,
+                  onChanged: (val) {
+                    setState(() {
+                      _isActive = val;
+                      if (_isActive) {
+                        _expiry = DateTime(2100, 1, 1);
+                        _expiryLabel = 'None';
+                      } else {
+                        _expiry = DateTime(2000, 1, 1);
+                        _expiryLabel = 'Expired';
+                      }
+                    });
+                  },
+                  colors: colors,
+                  textTheme: textTheme,
+                ),
+                const Divider(height: 8, thickness: 2, color: Colors.white),
+                _buildConfigTile(
+                  icon: Icons.timer_outlined,
+                  label: 'Expiry',
+                  value: _expiryLabel,
+                  colors: colors,
+                  textTheme: textTheme,
+                  enabled: _isActive,
+                  onTap: _showExpirySelectionDialog,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Bottom Action Row (Delete / Save)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  widget.onDelete();
+                },
+                icon: const Icon(
+                    Icons.delete_outline_rounded, color: Colors.red),
+                label: const Text(
+                  'Delete',
+                  style: TextStyle(
+                      color: Colors.red, fontWeight: FontWeight.bold),
+                ),
+                style: OutlinedButton.styleFrom(
+                  shape: const StadiumBorder(),
+                  side: const BorderSide(color: Colors.red),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 14,
+                  ),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  final titleTrimmed = _title.trim();
+                  if (titleTrimmed.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please enter a session title'),
+                        backgroundColor: Colors.redAccent,
+                      ),
+                    );
+                    return;
+                  }
+
+                  final navigator = Navigator.of(context);
+                  final messenger = ScaffoldMessenger.of(context);
+
+                  final updatedSession = widget.session.copyWith(
+                    title: titleTrimmed,
+                    subtitle: _subtitle.trim(),
+                    folder: _folder,
+                    expiry: _expiry,
+                  );
+
+                  try {
+                    await SessionService().updateSession(updatedSession);
+                    navigator.pop();
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('Session updated successfully!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  } catch (e) {
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to update session: $e'),
+                        backgroundColor: colors.error,
+                      ),
+                    );
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colors.primary,
+                  foregroundColor: colors.onPrimary,
+                  shape: const StadiumBorder(),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 14,
+                  ),
+                  elevation: 0,
+                ),
+                child: Text(
+                  'Save',
+                  style: textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: colors.onPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+        ],
       ),
     );
   }
