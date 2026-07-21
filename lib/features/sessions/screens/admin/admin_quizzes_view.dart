@@ -943,38 +943,59 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
             'sessionId': widget.session.sessionID,
             'relevantToQna': relevantToQna,
           };
-          debugPrint(
-              'AI Quiz Generation: Calling generateQuizQuestions with payload: $requestPayload');
 
-          final callable = FirebaseFunctions.instance.httpsCallable(
-              'generateQuizQuestions');
-          final response = await callable.call(requestPayload);
-          debugPrint(
-              'AI Quiz Generation: generateQuizQuestions response received. Data: ${response
-                  .data}');
+          int attempts = 0;
+          const maxAttempts = 4; // 1 initial attempt + 3 retries = 4 attempts total
 
-          if (response.data != null && response.data['questions'] != null) {
-            final questionsData = response.data['questions'] as List;
-            int qId = 1;
-            questions = questionsData.map((q) {
-              return QuizQuestion(
-                questionId: 'q_${qId++}',
-                questionText: q['questionText'] as String? ?? '',
-                type: q['type'] as String? ?? 'multiple_choice',
-                options: List<String>.from(q['options'] ?? []),
-                correctAnswers: List<String>.from(q['correctAnswers'] ?? []),
-              );
-            }).toList();
-            debugPrint('AI Quiz Generation: Parsed ${questions
-                .length} questions successfully.');
-          } else {
-            debugPrint(
-                'AI Quiz Generation Warning: Response is missing questions list: ${response
-                    .data}');
+          while (attempts < maxAttempts) {
+            try {
+              attempts++;
+              debugPrint(
+                  'AI Quiz Generation: Calling generateQuizQuestions (Attempt $attempts/$maxAttempts) with payload: $requestPayload');
+
+              final callable = FirebaseFunctions.instance.httpsCallable(
+                  'generateQuizQuestions');
+              final response = await callable.call(requestPayload);
+              debugPrint(
+                  'AI Quiz Generation: generateQuizQuestions response received. Data: ${response
+                      .data}');
+
+              if (response.data != null && response.data['questions'] != null) {
+                final questionsData = response.data['questions'] as List;
+                int qId = 1;
+                questions = questionsData.map((q) {
+                  return QuizQuestion(
+                    questionId: 'q_${qId++}',
+                    questionText: q['questionText'] as String? ?? '',
+                    type: q['type'] as String? ?? 'multiple_choice',
+                    options: List<String>.from(q['options'] ?? []),
+                    correctAnswers: List<String>.from(
+                        q['correctAnswers'] ?? []),
+                  );
+                }).toList();
+                debugPrint('AI Quiz Generation: Parsed ${questions
+                    .length} questions successfully.');
+                break;
+              } else {
+                debugPrint(
+                    'AI Quiz Generation Warning: Response is missing questions list on attempt $attempts: ${response
+                        .data}');
+                if (attempts >= maxAttempts) {
+                  throw Exception(
+                      'Invalid response schema from quiz generation.');
+                }
+              }
+            } catch (e) {
+              debugPrint(
+                  "AI Quiz Generation Error: Production AI question generation failed on attempt $attempts: $e");
+              if (attempts >= maxAttempts) {
+                rethrow;
+              }
+            }
           }
         } catch (e) {
           debugPrint(
-              "AI Quiz Generation Error: Production AI question generation failed: $e");
+              "AI Quiz Generation Error: Production AI question generation failed after all attempts: $e");
         }
 
         if (questions == null) {
@@ -1725,28 +1746,46 @@ class _AiGenerationBottomSheetState extends State<_AiGenerationBottomSheet> {
           }
 
           if (fileUrl.isNotEmpty) {
-            debugPrint(
-                'AI Quiz Generation: Calling extractTopicsFromPdf with fileUrl: $fileUrl');
-            final callable = FirebaseFunctions.instance.httpsCallable(
-                'extractTopicsFromPdf');
-            final response = await callable.call({'fileUrl': fileUrl});
-            debugPrint(
-                'AI Quiz Generation: extractTopicsFromPdf response received. Data: ${response
-                    .data}');
-            
-            final topics = List<String>.from(response.data['topics']);
-            if (topics.isNotEmpty) {
-              setState(() {
-                _detectedTopics = topics;
-                _selectedTopics.clear();
-                _selectedTopics.addAll(topics);
-                _isAnalyzing = false;
-              });
-              debugPrint('AI Quiz Generation: Extracted topics: $topics');
-              return;
-            } else {
-              debugPrint(
-                  'AI Quiz Generation Warning: No topics extracted from PDF.');
+            int attempts = 0;
+            const maxAttempts = 4; // 1 initial attempt + 3 retries = 4 attempts total
+
+            while (attempts < maxAttempts) {
+              try {
+                attempts++;
+                debugPrint(
+                    'AI Quiz Generation: Calling extractTopicsFromPdf (Attempt $attempts/$maxAttempts) with fileUrl: $fileUrl');
+                final callable = FirebaseFunctions.instance.httpsCallable(
+                    'extractTopicsFromPdf');
+                final response = await callable.call({'fileUrl': fileUrl});
+                debugPrint(
+                    'AI Quiz Generation: extractTopicsFromPdf response received. Data: ${response
+                        .data}');
+
+                final topics = List<String>.from(response.data['topics']);
+                if (topics.isNotEmpty) {
+                  setState(() {
+                    _detectedTopics = topics;
+                    _selectedTopics.clear();
+                    _selectedTopics.addAll(topics);
+                    _isAnalyzing = false;
+                  });
+                  debugPrint('AI Quiz Generation: Extracted topics: $topics');
+                  return;
+                } else {
+                  debugPrint(
+                      'AI Quiz Generation Warning: No topics extracted from PDF on attempt $attempts.');
+                  if (attempts >= maxAttempts) {
+                    throw Exception(
+                        'No topics returned by the extraction service.');
+                  }
+                }
+              } catch (e) {
+                debugPrint(
+                    "AI Quiz Generation Error: Production AI topic extraction failed on attempt $attempts: $e");
+                if (attempts >= maxAttempts) {
+                  rethrow;
+                }
+              }
             }
           }
         } catch (e) {

@@ -29,9 +29,28 @@ exports.extractTopicsFromPdf = onCall(async (request) => {
     const pdfBuffer = await response.arrayBuffer();
     console.log(`[extractTopicsFromPdf] PDF fetched successfully. Size: ${pdfBuffer.byteLength} bytes`);
 
-    const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "object",
+          properties: {
+            topics: {
+              type: "array",
+              items: {
+                type: "string"
+              }
+            }
+          },
+          required: ["topics"]
+        }
+      }
+    });
 
-    const prompt = "Analyze this PDF document and list the top 5 distinct study/meeting topics covered in it.";
+    const prompt = "Analyze the attached PDF document and extract exactly 5 distinct key study/meeting topics covered in it. " +
+      "Each topic MUST be a very brief, simple topic header (max 3-5 words, e.g. 'Multimedia Components', 'Media Digitization', 'Interactive Flow'), " +
+      "and NOT a sentence, paragraph, introduction, or long description.";
 
     console.log("[extractTopicsFromPdf] Calling Gemini API...");
     const result = await model.generateContent([
@@ -45,13 +64,13 @@ exports.extractTopicsFromPdf = onCall(async (request) => {
     ]);
 
     // Request structural output format or clean it up
-    const text = result.response.text();
-    console.log("[extractTopicsFromPdf] Raw response from Gemini:", text);
+    const responseText = result.response.text();
+    console.log("[extractTopicsFromPdf] Raw response from Gemini:", responseText);
     
-    // Parse lines or use Gemini structured output schema
-    const topics = text.split("\n")
-      .map(line => line.replace(/^[\d\-\*\s\.]+/g, "").trim())
-      .filter(line => line.length > 0)
+    const parsedData = JSON.parse(responseText);
+    const topics = (parsedData.topics || [])
+      .map(topic => topic.trim())
+      .filter(topic => topic.length > 0)
       .slice(0, 5);
 
     console.log("[extractTopicsFromPdf] Parsed topics:", topics);
@@ -110,7 +129,7 @@ exports.generateQuizQuestions = onCall(async (request) => {
     console.log(`[generateQuizQuestions] PDF fetched successfully. Size: ${pdfBuffer.byteLength} bytes`);
 
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-3.5-flash",
+      model: "gemini-3.1-flash-lite",
       // Force structured JSON output matching our exact schema
       generationConfig: {
         responseMimeType: "application/json",
