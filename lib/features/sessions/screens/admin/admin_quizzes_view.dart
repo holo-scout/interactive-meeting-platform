@@ -1186,15 +1186,26 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
           final fileUrl = 'https://firebasestorage.googleapis.com/v0/b/${FirebaseFirestore
               .instance.app.options.storageBucket}/o/session_pdfs%2F${widget
               .session.sessionID}%2F$fileName?alt=media';
-          final callable = FirebaseFunctions.instance.httpsCallable(
-              'generateQuizQuestions');
-          final response = await callable.call({
+
+          final relevantToQna = result['relevantToQna'] as bool? ?? false;
+          final requestPayload = {
             'fileUrl': fileUrl,
             'selectedTopics': topics,
             'mcqCount': mcq,
             'checkboxCount': chk,
             'openCount': open,
-          });
+            'sessionId': widget.session.sessionID,
+            'relevantToQna': relevantToQna,
+          };
+          debugPrint(
+              'AI Quiz Generation: Calling generateQuizQuestions with payload: $requestPayload');
+
+          final callable = FirebaseFunctions.instance.httpsCallable(
+              'generateQuizQuestions');
+          final response = await callable.call(requestPayload);
+          debugPrint(
+              'AI Quiz Generation: generateQuizQuestions response received. Data: ${response
+                  .data}');
 
           if (response.data != null && response.data['questions'] != null) {
             final questionsData = response.data['questions'] as List;
@@ -1208,10 +1219,16 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
                 correctAnswers: List<String>.from(q['correctAnswers'] ?? []),
               );
             }).toList();
+            debugPrint('AI Quiz Generation: Parsed ${questions
+                .length} questions successfully.');
+          } else {
+            debugPrint(
+                'AI Quiz Generation Warning: Response is missing questions list: ${response
+                    .data}');
           }
         } catch (e) {
           debugPrint(
-              "Production AI question generation failed, falling back to mock: $e");
+              "AI Quiz Generation Error: Production AI question generation failed, falling back to mock: $e");
         }
 
         questions ??= _generateQuestions(
@@ -1903,6 +1920,7 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
     }
   }
 }
+
 class _AiGenerationBottomSheet extends StatefulWidget {
   const _AiGenerationBottomSheet({required this.sessionID});
 
@@ -1943,6 +1961,8 @@ class _AiGenerationBottomSheetState extends State<_AiGenerationBottomSheet> {
         try {
           String fileUrl = '';
           if (file.bytes != null) {
+            debugPrint(
+                'AI Quiz Generation: Uploading PDF to Firebase Storage...');
             final storageRef = FirebaseStorage.instance
                 .ref()
                 .child('session_pdfs/${widget.sessionID}/${DateTime
@@ -1950,12 +1970,20 @@ class _AiGenerationBottomSheetState extends State<_AiGenerationBottomSheet> {
                 .millisecondsSinceEpoch}_${file.name}');
             await storageRef.putData(file.bytes!);
             fileUrl = await storageRef.getDownloadURL();
+            debugPrint(
+                'AI Quiz Generation: PDF uploaded successfully. fileUrl: $fileUrl');
           }
 
           if (fileUrl.isNotEmpty) {
+            debugPrint(
+                'AI Quiz Generation: Calling extractTopicsFromPdf with fileUrl: $fileUrl');
             final callable = FirebaseFunctions.instance.httpsCallable(
                 'extractTopicsFromPdf');
             final response = await callable.call({'fileUrl': fileUrl});
+            debugPrint(
+                'AI Quiz Generation: extractTopicsFromPdf response received. Data: ${response
+                    .data}');
+            
             final topics = List<String>.from(response.data['topics']);
             if (topics.isNotEmpty) {
               setState(() {
@@ -1964,12 +1992,16 @@ class _AiGenerationBottomSheetState extends State<_AiGenerationBottomSheet> {
                 _selectedTopics.addAll(topics);
                 _isAnalyzing = false;
               });
+              debugPrint('AI Quiz Generation: Extracted topics: $topics');
               return;
+            } else {
+              debugPrint(
+                  'AI Quiz Generation Warning: No topics extracted from PDF.');
             }
           }
         } catch (e) {
           debugPrint(
-              "Production AI topic extraction failed, falling back to mock: $e");
+              "AI Quiz Generation Error: Production AI topic extraction failed, falling back to mock: $e");
         }
 
         setState(() {
