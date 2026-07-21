@@ -929,9 +929,7 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
 
         List<QuizQuestion>? questions;
         try {
-          final fileUrl = 'https://firebasestorage.googleapis.com/v0/b/${FirebaseFirestore
-              .instance.app.options.storageBucket}/o/session_pdfs%2F${widget
-              .session.sessionID}%2F$fileName?alt=media';
+          final fileUrl = result['fileUrl'] as String;
 
           final relevantToQna = result['relevantToQna'] as bool? ?? false;
           final requestPayload = {
@@ -1711,6 +1709,7 @@ class _AiGenerationBottomSheetState extends State<_AiGenerationBottomSheet> {
   List<String> _detectedTopics = [];
   final Set<String> _selectedTopics = {};
   bool _isAnalyzing = false;
+  String? _uploadedFileUrl;
 
   Future<void> _pickPdfFile() async {
     final colors = Theme
@@ -1740,7 +1739,8 @@ class _AiGenerationBottomSheetState extends State<_AiGenerationBottomSheet> {
                 .now()
                 .millisecondsSinceEpoch}_${file.name}');
             await storageRef.putData(file.bytes!);
-            fileUrl = await storageRef.getDownloadURL();
+            _uploadedFileUrl = await storageRef.getDownloadURL();
+            fileUrl = _uploadedFileUrl!;
             debugPrint(
                 'AI Quiz Generation: PDF uploaded successfully. fileUrl: $fileUrl');
           }
@@ -1840,6 +1840,7 @@ class _AiGenerationBottomSheetState extends State<_AiGenerationBottomSheet> {
       'openEndedCount': _openEndedCount,
       'relevantToQna': _relevantToQna,
       'fileName': _selectedPdf!.name,
+      'fileUrl': _uploadedFileUrl,
       'selectedTopics': _selectedTopics.toList(),
     });
   }

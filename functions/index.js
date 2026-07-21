@@ -30,7 +30,7 @@ exports.extractTopicsFromPdf = onCall(async (request) => {
     console.log(`[extractTopicsFromPdf] PDF fetched successfully. Size: ${pdfBuffer.byteLength} bytes`);
 
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash",
+      model: "gemini-3.1-flash-lite",
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: {
@@ -87,6 +87,8 @@ exports.extractTopicsFromPdf = onCall(async (request) => {
 exports.generateQuizQuestions = onCall(async (request) => {
   console.log("[generateQuizQuestions] Started. Request data:", JSON.stringify(request.data));
   const { fileUrl, selectedTopics, mcqCount, checkboxCount, openCount, sessionId, relevantToQna } = request.data;
+
+  console.log("[generateQuizQuestions] fileUrl =", fileUrl);
 
   try {
     // 1. Fetch Q&A Questions if toggled active
