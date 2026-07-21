@@ -869,260 +869,6 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
     }
   }
 
-  List<QuizQuestion> _generateQuestions({
-    required List<String> topics,
-    required int mcqCount,
-    required int checkboxCount,
-    required int openCount,
-  }) {
-    final List<QuizQuestion> questions = [];
-    int qId = 1;
-
-    final Map<String, List<Map<String, dynamic>>> mcqPool = {
-      'stateful': [
-        {
-          'question': 'Which method is invoked first in the lifecycle of a State object?',
-          'options': [
-            'initState()',
-            'build()',
-            'didChangeDependencies()',
-            'createState()'
-          ],
-          'correct': ['initState()'],
-        },
-      ],
-      'state management': [
-        {
-          'question': 'Which provider type is best suited for managing complex state objects in Riverpod?',
-          'options': [
-            'StateNotifierProvider',
-            'Provider',
-            'FutureProvider',
-            'StreamProvider'
-          ],
-          'correct': ['StateNotifierProvider'],
-        },
-      ],
-      'asynchronous': [
-        {
-          'question': 'What keyword is used to yield values from an asynchronous generator function in Dart?',
-          'options': ['yield', 'return', 'async*', 'yield*'],
-          'correct': ['yield'],
-        },
-      ],
-      'custom painter': [
-        {
-          'question': 'Which method must be overridden to define custom rendering logic in a CustomPainter?',
-          'options': ['paint()', 'shouldRepaint()', 'draw()', 'layout()'],
-          'correct': ['paint()'],
-        },
-      ],
-      'firestore': [
-        {
-          'question': 'Which rule determines write privileges in Firestore security rules?',
-          'options': [
-            'allow write: if ...',
-            'allow read: if ...',
-            'allow get: if ...',
-            'allow list: if ...'
-          ],
-          'correct': ['allow write: if ...'],
-        },
-      ],
-      'auth': [
-        {
-          'question': 'Which authentication provider is supported natively by Firebase Auth out-of-the-box?',
-          'options': [
-            'Email/Password',
-            'OAuth (Google/Apple)',
-            'Phone SMS',
-            'All of the above'
-          ],
-          'correct': ['All of the above'],
-        },
-      ],
-      'security rules': [
-        {
-          'question': 'Which keyword is used to access incoming document data in Firestore security rules?',
-          'options': [
-            'request.resource.data',
-            'resource.data',
-            'request.data',
-            'incoming.data'
-          ],
-          'correct': ['request.resource.data'],
-        },
-      ],
-      'llm': [
-        {
-          'question': 'What is the primary role of a prompt template in LLM application design?',
-          'options': [
-            'Standardize inputs',
-            'Reduce tokens',
-            'Accelerate latency',
-            'Manage embeddings'
-          ],
-          'correct': ['Standardize inputs'],
-        },
-      ],
-      'prompt engineering': [
-        {
-          'question': 'Which prompt engineering technique uses examples to guide the model output structure?',
-          'options': [
-            'Few-shot prompting',
-            'Zero-shot prompting',
-            'Chain-of-thought',
-            'System prompting'
-          ],
-          'correct': ['Few-shot prompting'],
-        },
-      ],
-    };
-
-    final Map<String, List<Map<String, dynamic>>> checkboxPool = {
-      'stateful': [
-        {
-          'question': 'Select all lifecycle methods of a State object that are called multiple times:',
-          'options': [
-            'build()',
-            'didUpdateWidget()',
-            'initState()',
-            'dispose()'
-          ],
-          'correct': ['build()', 'didUpdateWidget()'],
-        },
-      ],
-      'state management': [
-        {
-          'question': 'Which of the following are reactive state management packages in Flutter?',
-          'options': ['Provider', 'Riverpod', 'Bloc', 'Http'],
-          'correct': ['Provider', 'Riverpod', 'Bloc'],
-        },
-      ],
-      'firestore': [
-        {
-          'question': 'Which sub-operations make up the Firestore write privilege?',
-          'options': ['create', 'update', 'delete', 'get'],
-          'correct': ['create', 'update', 'delete'],
-        },
-      ],
-      'llm': [
-        {
-          'question': 'Which of the following are components of a standard RAG pipeline?',
-          'options': [
-            'Vector Database',
-            'Document Chunking',
-            'Embedding Model',
-            'Direct CPU instruction'
-          ],
-          'correct': [
-            'Vector Database',
-            'Document Chunking',
-            'Embedding Model'
-          ],
-        },
-      ],
-    };
-
-    final Map<String, String> openPool = {
-      'stateful': 'Explain the difference between hot reload and hot restart in Flutter, and how they affect the widget tree state.',
-      'state management': 'Compare and contrast local state (setState) vs global state management (e.g. Riverpod) in Flutter development.',
-      'asynchronous': 'Describe how the event loop works in Dart and how asynchronous microtasks and events are prioritised.',
-      'firestore': 'Explain the trade-offs between nested subcollections vs root-level collections with references in Firestore database design.',
-      'llm': 'Explain the concept of Retrieval-Augmented Generation (RAG) and why it is useful for domain-specific AI queries.',
-      'general': 'Describe the core challenges and potential solutions when integrating third-party AI APIs into production systems.',
-    };
-
-    List<Map<String, dynamic>> getMatchingMcq(String topic) {
-      final key = mcqPool.keys.firstWhere(
-            (k) => topic.toLowerCase().contains(k),
-        orElse: () => '',
-      );
-      if (key.isNotEmpty) return mcqPool[key]!;
-      return [
-        {
-          'question': 'Which of the following is a key aspect of "$topic"?',
-          'options': [
-            'Core mechanism',
-            'Alternative approach',
-            'Performance overhead',
-            'Historical artifact'
-          ],
-          'correct': ['Core mechanism'],
-        }
-      ];
-    }
-
-    List<Map<String, dynamic>> getMatchingCheckbox(String topic) {
-      final key = checkboxPool.keys.firstWhere(
-            (k) => topic.toLowerCase().contains(k),
-        orElse: () => '',
-      );
-      if (key.isNotEmpty) return checkboxPool[key]!;
-      return [
-        {
-          'question': 'Select all valid attributes/features of "$topic":',
-          'options': [
-            'Primary driver',
-            'Scalability component',
-            'Deprecated method',
-            'Security risk'
-          ],
-          'correct': ['Primary driver', 'Scalability component'],
-        }
-      ];
-    }
-
-    String getMatchingOpen(String topic) {
-      final key = openPool.keys.firstWhere(
-            (k) => topic.toLowerCase().contains(k),
-        orElse: () => '',
-      );
-      if (key.isNotEmpty) return openPool[key]!;
-      return 'Discuss the primary benefits, design patterns, and main implementation hurdles associated with "$topic".';
-    }
-
-    for (int i = 0; i < mcqCount; i++) {
-      final topic = topics[i % topics.length];
-      final pool = getMatchingMcq(topic);
-      final item = pool[i % pool.length];
-      questions.add(QuizQuestion(
-        questionId: 'q_${qId++}',
-        questionText: item['question'],
-        type: 'multiple_choice',
-        options: List<String>.from(item['options']),
-        correctAnswers: List<String>.from(item['correct']),
-      ));
-    }
-
-    for (int i = 0; i < checkboxCount; i++) {
-      final topic = topics[(i + mcqCount) % topics.length];
-      final pool = getMatchingCheckbox(topic);
-      final item = pool[i % pool.length];
-      questions.add(QuizQuestion(
-        questionId: 'q_${qId++}',
-        questionText: item['question'],
-        type: 'checkbox',
-        options: List<String>.from(item['options']),
-        correctAnswers: List<String>.from(item['correct']),
-      ));
-    }
-
-    for (int i = 0; i < openCount; i++) {
-      final topic = topics[(i + mcqCount + checkboxCount) % topics.length];
-      final promptText = getMatchingOpen(topic);
-      questions.add(QuizQuestion(
-        questionId: 'q_${qId++}',
-        questionText: promptText,
-        type: 'open_ended',
-        options: [],
-        correctAnswers: [],
-      ));
-    }
-
-    return questions;
-  }
-
   void _showAiGenerationBottomSheet() {
     showModalBottomSheet(
       context: context,
@@ -1228,15 +974,19 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
           }
         } catch (e) {
           debugPrint(
-              "AI Quiz Generation Error: Production AI question generation failed, falling back to mock: $e");
+              "AI Quiz Generation Error: Production AI question generation failed: $e");
         }
 
-        questions ??= _generateQuestions(
-          topics: topics,
-          mcqCount: mcq,
-          checkboxCount: chk,
-          openCount: open,
-        );
+        if (questions == null) {
+          messenger.showSnackBar(
+            SnackBar(
+              content: const Text(
+                  'AI quiz generation failed. Please try again.'),
+              backgroundColor: errorColor,
+            ),
+          );
+          return;
+        }
 
         final quizId = 'quiz_${DateTime
             .now()
@@ -2001,15 +1751,24 @@ class _AiGenerationBottomSheetState extends State<_AiGenerationBottomSheet> {
           }
         } catch (e) {
           debugPrint(
-              "AI Quiz Generation Error: Production AI topic extraction failed, falling back to mock: $e");
+              "AI Quiz Generation Error: Production AI topic extraction failed: $e");
         }
 
         setState(() {
-          _detectedTopics = _extractMockTopics(file.name);
+          _selectedPdf = null;
+          _detectedTopics.clear();
           _selectedTopics.clear();
-          _selectedTopics.addAll(_detectedTopics);
           _isAnalyzing = false;
         });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text(
+                  'AI topic extraction failed. Please try again.'),
+              backgroundColor: colors.error,
+            ),
+          );
+        }
       }
     } catch (e) {
       setState(() {
@@ -2023,45 +1782,6 @@ class _AiGenerationBottomSheetState extends State<_AiGenerationBottomSheet> {
           ),
         );
       }
-    }
-  }
-
-  List<String> _extractMockTopics(String fileName) {
-    final lowerName = fileName.toLowerCase();
-    if (lowerName.contains('flutter') || lowerName.contains('dart')) {
-      return [
-        'Stateful vs Stateless Widgets',
-        'State Management (Provider/Riverpod)',
-        'Widget Lifecycle (initState, didChangeDependencies)',
-        'Asynchronous Programming (Futures & Streams)',
-        'Custom Painters & Custom Clippers',
-      ];
-    } else
-    if (lowerName.contains('firebase') || lowerName.contains('firestore')) {
-      return [
-        'Firestore Collection Structure & Queries',
-        'Firebase Authentication & Sign-in methods',
-        'Real-time Streams & Offline Caching',
-        'Firestore Security Rules & Data Validation',
-        'Cloud Functions HTTP Triggers & Database Triggers',
-      ];
-    } else if (lowerName.contains('ai') || lowerName.contains('gpt') ||
-        lowerName.contains('gemini')) {
-      return [
-        'Large Language Models (LLM) Integration',
-        'Prompt Engineering & Structured System Prompts',
-        'Retrieval-Augmented Generation (RAG) Architecture',
-        'Tokenization & Context Window Optimization',
-        'Gemini API Call Limits & Function Calling',
-      ];
-    } else {
-      return [
-        'Main Concepts & Document Overview',
-        'Key Terminology & Core Definitions',
-        'Historical Context & Background',
-        'Practical Applications & Best Practices',
-        'Alternative Solutions & Trade-offs',
-      ];
     }
   }
 
