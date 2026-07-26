@@ -229,7 +229,7 @@ class _ParticipantQuizzesViewState extends State<ParticipantQuizzesView> {
                                   Icons.play_arrow_outlined,
                                   size: 18,
                                 ),
-                                label: const Text('Take Quiz'),
+                                label: const Text('Take quiz'),
                               ),
                             ],
                           ],
@@ -320,7 +320,7 @@ class _QuizTakerViewState extends State<_QuizTakerView> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Quiz: ${widget.quiz.title}'),
+        title: Text('quiz: ${widget.quiz.title}'),
         leading: Padding(
           padding: const EdgeInsets.only(left: 16.0, top: 8.0, bottom: 8.0),
           child: IconButton(
@@ -356,7 +356,7 @@ class _QuizTakerViewState extends State<_QuizTakerView> {
                         );
                         messenger.showSnackBar(
                           const SnackBar(
-                            content: Text('Quiz submitted successfully!'),
+                            content: Text('quiz submitted successfully!'),
                             backgroundColor: Colors.green,
                           ),
                         );
@@ -374,7 +374,7 @@ class _QuizTakerViewState extends State<_QuizTakerView> {
                   child: const Padding(
                     padding: EdgeInsets.symmetric(vertical: 14),
                     child: Text(
-                      'Submit Quiz Answers',
+                      'Submit quiz Answers',
                       style: TextStyle(fontSize: 16),
                     ),
                   ),
@@ -543,7 +543,7 @@ class _QuizResultsView extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      appBar: AppBar(title: Text('Quiz Results: ${quiz.title}')),
+      appBar: AppBar(title: Text('quiz Results: ${quiz.title}')),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [

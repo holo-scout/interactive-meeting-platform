@@ -474,7 +474,7 @@ class _SessionPageTemplateState extends State<_SessionPageTemplate> {
             .textTheme;
 
         return AlertDialog(
-          title: Text('Create New Quiz', style: textTheme.titleLarge),
+          title: Text('Create New quiz', style: textTheme.titleLarge),
           content: SizedBox(
             width: 450,
             child: Form(
@@ -485,8 +485,8 @@ class _SessionPageTemplateState extends State<_SessionPageTemplate> {
                   TextFormField(
                     controller: titleController,
                     decoration: const InputDecoration(
-                      labelText: 'Quiz Title',
-                      hintText: 'e.g. Midterm Quiz',
+                      labelText: 'quiz Title',
+                      hintText: 'e.g. Midterm quiz',
                       border: OutlineInputBorder(),
                     ),
                     validator: (value) {
@@ -542,7 +542,7 @@ class _SessionPageTemplateState extends State<_SessionPageTemplate> {
                     messenger.showSnackBar(
                       const SnackBar(
                         content: Text(
-                            'Quiz created successfully! Click "Questions" to add questions.'),
+                            'quiz created successfully! Click "Questions" to add questions.'),
                         backgroundColor: Colors.green,
                       ),
                     );

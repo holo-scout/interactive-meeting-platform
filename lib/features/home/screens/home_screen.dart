@@ -100,7 +100,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         controller: subtitleController,
                         decoration: const InputDecoration(
                           labelText: 'Subtitle (Optional)',
-                          hintText: 'e.g. Q&A, Quiz and Live Polls',
+                          hintText: 'e.g. Q&A, quiz and Live Polls',
                           border: OutlineInputBorder(),
                         ),
                       ),
