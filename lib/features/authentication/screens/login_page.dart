@@ -74,16 +74,16 @@ class _LoginPageState extends State<LoginPage> {
 
     final mediaQuery = MediaQuery.of(context);
     final screenWidth = mediaQuery.size.width;
-    final formWidth = screenWidth > 600 ? 400.0 : screenWidth * 0.85;
+    final formWidth = screenWidth > 600 ? 400.0 : screenWidth * 0.8;
 
     return Scaffold(
       backgroundColor: colors.surface,
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Center(
-            child: Container(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            child: SizedBox(
               width: formWidth,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
               child: Form(
                 key: _formKey,
                 child: Column(

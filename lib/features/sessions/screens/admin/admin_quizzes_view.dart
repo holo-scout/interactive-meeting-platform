@@ -306,7 +306,7 @@ class _AdminQuizzesViewState extends State<AdminQuizzesView> {
                                 },
                               );
                             },
-                            icon: const Icon(Icons.edit_outlined),,
+                            icon: const Icon(Icons.edit_outlined),
                             tooltip: 'Edit quiz Details',
                           ),
                         ],

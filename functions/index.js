@@ -48,7 +48,7 @@ exports.extractTopicsFromPdf = onCall(async (request) => {
       }
     });
 
-    const prompt = "Analyze the attached PDF document and extract exactly 5 distinct key study/meeting topics covered in it. " +
+    const prompt = "Analyze the attached PDF document and extract up to 20 distinct key study/meeting topics covered in it. " +
       "Each topic MUST be a very brief, simple topic header (max 3-5 words, e.g. 'Multimedia Components', 'Media Digitization', 'Interactive Flow'), " +
       "and NOT a sentence, paragraph, introduction, or long description.";
 
@@ -71,7 +71,7 @@ exports.extractTopicsFromPdf = onCall(async (request) => {
     const topics = (parsedData.topics || [])
       .map(topic => topic.trim())
       .filter(topic => topic.length > 0)
-      .slice(0, 5);
+      .slice(0, 20);
 
     console.log("[extractTopicsFromPdf] Parsed topics:", topics);
     return { topics };

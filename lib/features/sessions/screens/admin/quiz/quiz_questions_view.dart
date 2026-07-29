@@ -26,6 +26,7 @@ class ManageQuizQuestionsPage extends StatefulWidget {
 class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
   final _formKey = GlobalKey<FormState>();
   final List<Map<String, dynamic>> _questions = [];
+  bool _isShowingDialog = false;
 
   @override
   void initState() {
@@ -133,7 +134,6 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
         final chk = result['checkboxCount'] as int;
         final open = result['openEndedCount'] as int;
         final topics = List<String>.from(result['selectedTopics']);
-        final fileName = result['fileName'] as String;
 
         if (topics.isEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -259,36 +259,68 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
           return;
         }
 
-        final quizId = 'quiz_${DateTime.now().millisecondsSinceEpoch}';
-        final quiz = Quiz(
-          quizId: quizId,
-          title: 'quiz: ${fileName.replaceAll(".pdf", "")}',
-          description:
-              'AI-generated quiz from $fileName targeting: ${topics.join(", ")}',
-          questions: questions,
-          isReleased: false,
-          createdAt: DateTime.now(),
-        );
+        final List<Map<String, dynamic>> newQuestionMaps = [];
+        for (var question in questions) {
+          int correctIdx = 0;
+          List<int> correctIndices = [];
 
-        try {
-          await QuizService().createOrUpdateQuiz(
-            widget.session.sessionID,
-            quiz,
-          );
-          messenger.showSnackBar(
-            const SnackBar(
-              content: Text('AI quiz generated successfully as Draft!'),
-              backgroundColor: Colors.green,
+          if (question.type == 'multiple_choice' &&
+              question.correctAnswers.isNotEmpty) {
+            correctIdx =
+                question.options.indexOf(question.correctAnswers.first);
+            if (correctIdx == -1) correctIdx = 0;
+          } else if (question.type == 'checkbox') {
+            for (var correctAns in question.correctAnswers) {
+              final idx = question.options.indexOf(correctAns);
+              if (idx != -1) {
+                correctIndices.add(idx);
+              }
+            }
+            if (correctIndices.isEmpty) {
+              correctIndices = [0];
+            }
+          }
+
+          newQuestionMaps.add({
+            'questionId':
+            'q_${DateTime
+                .now()
+                .millisecondsSinceEpoch}_${_questions.length +
+                newQuestionMaps.length}',
+            'type': question.type,
+            'questionText': question.questionText,
+            'options': List<String>.from(
+              question.options.isNotEmpty
+                  ? question.options
+                  : (question.type == 'open_ended' ? [] : ['', '']),
             ),
-          );
-        } catch (e) {
-          messenger.showSnackBar(
-            SnackBar(
-              content: Text('Failed to save generated quiz: $e'),
-              backgroundColor: errorColor,
-            ),
-          );
+            'correctOptionIndex': correctIdx,
+            'correctOptionIndices': correctIndices,
+            'correctAnswerText': question.type == 'open_ended' &&
+                question.correctAnswers.isNotEmpty
+                ? question.correctAnswers.first
+                : '',
+            'correctImageBase64': question.correctImageBase64,
+          });
         }
+
+        setState(() {
+          if (_questions.length == 1 &&
+              (_questions.first['questionText'] as String).isEmpty) {
+            _questions.clear();
+          }
+          _questions.addAll(newQuestionMaps);
+        });
+
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              'Added ${questions
+                  .length} AI-generated questions to the current quiz!',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
       }
     });
   }
@@ -502,16 +534,93 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
     );
   }
 
+  Future<void> _showUnsavedChangesDialog() async {
+    if (_isShowingDialog) return;
+    _isShowingDialog = true;
+
+    final colors = Theme
+        .of(context)
+        .colorScheme;
+    final textTheme = Theme
+        .of(context)
+        .textTheme;
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Unsaved Changes',
+                  style: textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'You have unsaved changes in your quiz questions. Would you like to save or discard them?',
+            style: textTheme.bodyMedium?.copyWith(
+              color: colors.onSurfaceVariant,
+            ),
+          ),
+          actionsPadding: const EdgeInsets.only(
+            left: 16,
+            right: 16,
+            bottom: 16,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop('cancel'),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(
+                foregroundColor: colors.error,
+              ),
+              onPressed: () => Navigator.of(dialogContext).pop('discard'),
+              child: const Text('Discard'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop('save'),
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+
+    _isShowingDialog = false;
+
+    if (!mounted) return;
+
+    if (result == 'discard') {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      Navigator.of(context).pop();
+    } else if (result == 'save') {
+      _saveQuestions();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
     return PopScope(
+      canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) {
           ScaffoldMessenger.of(context).clearSnackBars();
+          return;
         }
+        _showUnsavedChangesDialog();
       },
       child: Scaffold(
         appBar: AppBar(
@@ -523,7 +632,7 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.arrow_back),
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () => Navigator.maybePop(context),
                   style: IconButton.styleFrom(
                     backgroundColor: Colors.grey.shade100,
                     foregroundColor: colors.onSurface,
@@ -1353,9 +1462,6 @@ class _AiGenerationBottomSheetState extends State<_AiGenerationBottomSheet> {
                     decoration: BoxDecoration(
                       color: Colors.grey.shade50,
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: colors.outlineVariant.withValues(alpha: 0.5),
-                      ),
                     ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -1387,9 +1493,6 @@ class _AiGenerationBottomSheetState extends State<_AiGenerationBottomSheet> {
                         decoration: BoxDecoration(
                           color: colors.primary.withValues(alpha: 0.05),
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: colors.primary.withValues(alpha: 0.1),
-                          ),
                         ),
                         child: Column(
                           children: List.generate(_detectedTopics.length, (
@@ -1430,10 +1533,8 @@ class _AiGenerationBottomSheetState extends State<_AiGenerationBottomSheet> {
                                 ),
                                 if (index < _detectedTopics.length - 1)
                                   Divider(
-                                    height: 1,
-                                    color: colors.primary.withValues(
-                                      alpha: 0.1,
-                                    ),
+                                    height: 2,
+                                    color: Colors.white,
                                   ),
                               ],
                             );

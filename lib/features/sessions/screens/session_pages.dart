@@ -570,13 +570,8 @@ class _SessionPageTemplateState extends State<_SessionPageTemplate> {
     final showAdd =
         (widget.isAdministrator && (_index == 1 || _index == 2)) ||
         (!widget.isAdministrator && _index == 0);
-    final showSubmit = !widget.isAdministrator && _index == 2;
-    final actionIcon = showAdd
-        ? Icons.add
-        : showSubmit
-        ? Icons.send_rounded
-        : null;
-    final actionTooltip = showAdd ? 'Add' : 'Submit quiz';
+    final actionIcon = showAdd ? Icons.add : null;
+    final actionTooltip = showAdd ? 'Add' : '';
     final tabPages = widget.isAdministrator
         ? [
       AdminQnaView(
@@ -689,12 +684,6 @@ class _SessionPageTemplateState extends State<_SessionPageTemplate> {
                         _showCreatePollDialog();
                       } else if (widget.isAdministrator && _index == 2) {
                         _showCreateQuizDialog();
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                              content: Text(
-                                  '$actionTooltip action is coming soon.')),
-                        );
                       }
                     },
                   ),
