@@ -311,47 +311,112 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
   }
 
+  Widget _buildSearchBarWidget(ColorScheme colors,
+      {String hint = 'Search sessions, folders, favorites...'}) {
+    return SearchAnchor(
+      searchController: _searchController,
+      builder: (BuildContext context, SearchController controller) {
+        return SearchBar(
+          controller: controller,
+          elevation: const WidgetStatePropertyAll<double>(0.0),
+          backgroundColor: WidgetStatePropertyAll<Color>(
+            colors.surfaceContainerHigh,
+          ),
+          constraints: const BoxConstraints(
+            maxWidth: 600,
+            minHeight: 52,
+            maxHeight: 52,
+          ),
+          padding: const WidgetStatePropertyAll<EdgeInsets>(
+            EdgeInsets.symmetric(horizontal: 18.0),
+          ),
+          onTap: () {
+            controller.openView();
+          },
+          onChanged: (_) {
+            controller.openView();
+          },
+          leading: const Icon(Icons.search, size: 22),
+          trailing: <Widget>[
+            if (controller.text.isNotEmpty)
+              IconButton(
+                icon: const Icon(Icons.clear, size: 20),
+                onPressed: () {
+                  controller.clear();
+                },
+              ),
+          ],
+          hintText: hint,
+        );
+      },
+      suggestionsBuilder:
+          (BuildContext context, SearchController controller) {
+        return _getSearchSuggestions(controller);
+      },
+    );
+  }
+
   PreferredSizeWidget _buildAppBar(ColorScheme colors, TextTheme textTheme,
-      String displayName) {
-    if (_currentIndex == 0) {
-      return AppBar(
-        titleSpacing: 0,
-        title: Row(
+      String displayName, bool isLargeScreen) {
+    Widget titleWidget;
+
+    final welcomeLogoWidget = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(width: 16),
+        Image.asset('assets/images/quest_logo.png', height: 46),
+        const SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(width: 16),
-            Image.asset('assets/images/quest_logo.png', height: 46),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Welcome back,',
-                  style: textTheme.labelMedium?.copyWith(
-                    color: colors.onSurfaceVariant,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Text(
-                  displayName,
-                  style: textTheme.titleMedium?.copyWith(
-                    color: colors.onSurface,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
+            Text(
+              'Welcome back,',
+              style: textTheme.labelMedium?.copyWith(
+                color: colors.onSurfaceVariant,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            Text(
+              displayName,
+              style: textTheme.titleMedium?.copyWith(
+                color: colors.onSurface,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        actions: _buildAppBarActions(colors),
+      ],
+    );
+
+    if (isLargeScreen) {
+      String searchHint = 'Search sessions, folders, favorites...';
+      if (_currentIndex == 1) {
+        searchHint = 'Search favorites...';
+      } else if (_currentIndex == 2) {
+        searchHint = 'Search trash...';
+      }
+
+      titleWidget = Stack(
+        alignment: Alignment.center,
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: welcomeLogoWidget,
+          ),
+          Center(
+            child: SizedBox(
+              width: 580,
+              child: _buildSearchBarWidget(colors, hint: searchHint),
+            ),
+          ),
+        ],
       );
-    } else if (_currentIndex == 1) {
-      return AppBar(
-        title: Padding(
+    } else {
+      if (_currentIndex == 0) {
+        titleWidget = welcomeLogoWidget;
+      } else if (_currentIndex == 1) {
+        titleWidget = Padding(
           padding: const EdgeInsets.only(left: 8.0),
           child: Text(
             'Favorites',
@@ -360,15 +425,9 @@ class _HomeScreenState extends State<HomeScreen> {
               color: colors.primary,
             ),
           ),
-        ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        actions: _buildAppBarActions(colors),
-      );
-    } else {
-      return AppBar(
-        title: Padding(
+        );
+      } else {
+        titleWidget = Padding(
           padding: const EdgeInsets.only(left: 8.0),
           child: Text(
             'Trash Bin',
@@ -377,13 +436,18 @@ class _HomeScreenState extends State<HomeScreen> {
               color: colors.primary,
             ),
           ),
-        ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        actions: _buildAppBarActions(colors),
-      );
+        );
+      }
     }
+
+    return AppBar(
+      titleSpacing: 0,
+      title: titleWidget,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      actions: _buildAppBarActions(colors),
+    );
   }
 
   void _showRestoreConfirmDialog(Session session) {
@@ -628,7 +692,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHomeBody(ColorScheme colors, TextTheme textTheme,
-      List<Session> filteredSessions) {
+      List<Session> filteredSessions, bool isLargeScreen) {
     final folders = _sessionService.getFolders();
 
     return SingleChildScrollView(
@@ -643,49 +707,53 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SearchAnchor(
-                  searchController: _searchController,
-                  builder: (BuildContext context, SearchController controller) {
-                    return SearchBar(
-                      controller: controller,
-                      elevation: const WidgetStatePropertyAll<double>(0.0),
-                      backgroundColor: WidgetStatePropertyAll<Color>(
-                        colors.surfaceContainerHigh,
-                      ),
-                      padding: const WidgetStatePropertyAll<EdgeInsets>(
-                        EdgeInsets.symmetric(horizontal: 16.0),
-                      ),
-                      onTap: () {
-                        controller.openView();
-                      },
-                      onChanged: (_) {
-                        controller.openView();
-                      },
-                      leading: const Icon(Icons.search),
-                      trailing: <Widget>[
-                        if (controller.text.isNotEmpty)
-                          IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              controller.clear();
-                            },
-                          ),
-                      ],
-                      hintText: 'Search sessions, folders, favorites...',
-                    );
-                  },
-                  suggestionsBuilder: (BuildContext context,
-                      SearchController controller) {
-                    return _getSearchSuggestions(controller);
-                  },
-                ),
-                const SizedBox(height: 24),
+                if (!isLargeScreen) ...[
+                  SearchAnchor(
+                    searchController: _searchController,
+                    builder:
+                        (BuildContext context, SearchController controller) {
+                      return SearchBar(
+                        controller: controller,
+                        elevation: const WidgetStatePropertyAll<double>(0.0),
+                        backgroundColor: WidgetStatePropertyAll<Color>(
+                          colors.surfaceContainerHigh,
+                        ),
+                        padding: const WidgetStatePropertyAll<EdgeInsets>(
+                          EdgeInsets.symmetric(horizontal: 16.0),
+                        ),
+                        onTap: () {
+                          controller.openView();
+                        },
+                        onChanged: (_) {
+                          controller.openView();
+                        },
+                        leading: const Icon(Icons.search),
+                        trailing: <Widget>[
+                          if (controller.text.isNotEmpty)
+                            IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                controller.clear();
+                              },
+                            ),
+                        ],
+                        hintText: 'Search sessions, folders, favorites...',
+                      );
+                    },
+                    suggestionsBuilder: (BuildContext context,
+                        SearchController controller) {
+                      return _getSearchSuggestions(controller);
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                ],
                 // Folders Grid Section
-                if (folders.isNotEmpty) ...[
+                if (!isLargeScreen && folders.isNotEmpty) ...[
                   GridView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate:
+                    const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       mainAxisSpacing: 12,
                       crossAxisSpacing: 12,
@@ -726,20 +794,22 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 12),
                 ],
                 // More Folders text button
-                Center(
-                  child: TextButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (
-                            context) => const FoldersPage()),
-                      );
-                    },
-                    icon: const Icon(Icons.chevron_right_rounded),
-                    label: const Text('More folders'),
+                if (!isLargeScreen) ...[
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => const FoldersPage()),
+                        );
+                      },
+                      icon: const Icon(Icons.chevron_right_rounded),
+                      label: const Text('More folders'),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 24),
+                  const SizedBox(height: 24),
+                ],
 
                 // List Header & Tabs
                 Row(
@@ -913,45 +983,82 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
 
+    final isLargeScreen = MediaQuery
+        .of(context)
+        .size
+        .width >= 700;
+
+    final mainBody = Stack(
+      children: [
+        SafeArea(
+          child: IndexedStack(
+            index: _currentIndex,
+            children: [
+              _buildHomeBody(
+                  colors, textTheme, filteredSessions, isLargeScreen),
+              FavoritesPage(isLargeScreen: isLargeScreen),
+              TrashPage(isLargeScreen: isLargeScreen),
+            ],
+          ),
+        ),
+        if (_isFabExpanded)
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  _isFabExpanded = false;
+                });
+              },
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                color: Colors.transparent,
+              ),
+            ),
+          ),
+      ],
+    );
 
     return Scaffold(
       backgroundColor: colors.surface,
       appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(kToolbarHeight),
-        child: AbsorbPointer(
-          absorbing: _isFabExpanded,
-          child: _buildAppBar(colors, textTheme, displayName),
+        preferredSize: Size.fromHeight(isLargeScreen ? 76 : kToolbarHeight),
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            vertical: isLargeScreen ? 8.0 : 0.0,
+            horizontal: isLargeScreen ? 12.0 : 0.0,
+          ),
+          child: AbsorbPointer(
+            absorbing: _isFabExpanded,
+            child: _buildAppBar(colors, textTheme, displayName, isLargeScreen),
+          ),
         ),
       ),
-      body: Stack(
+      body: isLargeScreen
+          ? Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SafeArea(
-            child: IndexedStack(
-              index: _currentIndex,
-              children: [
-                _buildHomeBody(colors, textTheme, filteredSessions),
-                const FavoritesPage(),
-                const TrashPage(),
-              ],
-            ),
-          ),
-          if (_isFabExpanded)
-            Positioned.fill(
-              child: GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _isFabExpanded = false;
-                  });
-                },
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  color: Colors.transparent,
+          _buildSideNavPane(colors, textTheme),
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: colors.surface,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                ),
+                border: Border.all(
+                  color: colors.outlineVariant.withValues(alpha: 0.5),
                 ),
               ),
+              clipBehavior: Clip.antiAlias,
+              child: mainBody,
             ),
+          ),
         ],
-      ),
-      bottomNavigationBar: AbsorbPointer(
+      )
+          : mainBody,
+      bottomNavigationBar: isLargeScreen
+          ? null
+          : AbsorbPointer(
         absorbing: _isFabExpanded,
         child: NavigationBar(
           selectedIndex: _currentIndex,
@@ -1014,6 +1121,196 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       )
           : null,
+    );
+  }
+
+  Widget _buildSideNavPane(ColorScheme colors, TextTheme textTheme) {
+    final items = [
+      {
+        'icon': Icons.home_outlined,
+        'selectedIcon': Icons.home,
+        'label': 'Home',
+      },
+      {
+        'icon': Icons.favorite_outline,
+        'selectedIcon': Icons.favorite,
+        'label': 'Favorites',
+      },
+      {
+        'icon': Icons.delete_outline,
+        'selectedIcon': Icons.delete,
+        'label': 'Trash',
+      },
+    ];
+
+    final folders = _sessionService.getFolders();
+
+    return Container(
+      width: 240,
+      color: colors.surface,
+      alignment: Alignment.topLeft,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (int i = 0; i < items.length; i++) ...[
+              _buildSideNavItem(
+                index: i,
+                icon: items[i]['icon'] as IconData,
+                selectedIcon: items[i]['selectedIcon'] as IconData,
+                label: items[i]['label'] as String,
+                isSelected: _currentIndex == i,
+                colors: colors,
+                textTheme: textTheme,
+              ),
+              const SizedBox(height: 4),
+            ],
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                'Folders',
+                style: textTheme.labelMedium?.copyWith(
+                  color: colors.onSurfaceVariant,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            for (final folder in folders) ...[
+              _buildFolderNavItem(
+                icon: Icons.folder_outlined,
+                label: folder.name,
+                colors: colors,
+                textTheme: textTheme,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => FolderDetailsPage(folder: folder),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 4),
+            ],
+            _buildFolderNavItem(
+              icon: Icons.folder_copy_outlined,
+              label: 'View all folders',
+              colors: colors,
+              textTheme: textTheme,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const FoldersPage(),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFolderNavItem({
+    required IconData icon,
+    required String label,
+    required ColorScheme colors,
+    required TextTheme textTheme,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(28),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(28),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                color: colors.onSurfaceVariant,
+                size: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.labelLarge?.copyWith(
+                    color: colors.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSideNavItem({
+    required int index,
+    required IconData icon,
+    required IconData selectedIcon,
+    required String label,
+    required bool isSelected,
+    required ColorScheme colors,
+    required TextTheme textTheme,
+  }) {
+    final backgroundColor =
+    isSelected ? colors.primaryContainer : Colors.transparent;
+    final foregroundColor =
+    isSelected ? colors.onPrimaryContainer : colors.onSurfaceVariant;
+
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(28),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        borderRadius: BorderRadius.circular(28),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isSelected ? selectedIcon : icon,
+                color: foregroundColor,
+                size: 22,
+              ),
+              const SizedBox(width: 16),
+              Text(
+                label,
+                style: textTheme.labelLarge?.copyWith(
+                  color: foregroundColor,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  fontSize: 15,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

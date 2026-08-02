@@ -3,7 +3,9 @@ import '../../sessions/models/session.dart';
 import '../../sessions/services/session_service.dart';
 
 class TrashPage extends StatefulWidget {
-  const TrashPage({super.key});
+  const TrashPage({super.key, this.isLargeScreen = false});
+
+  final bool isLargeScreen;
 
   @override
   State<TrashPage> createState() => _TrashPageState();
@@ -214,43 +216,45 @@ class _TrashPageState extends State<TrashPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SearchAnchor(
-                searchController: _searchController,
-                builder: (BuildContext context, SearchController controller) {
-                  return SearchBar(
-                    controller: controller,
-                    elevation: const WidgetStatePropertyAll<double>(0.0),
-                    backgroundColor: WidgetStatePropertyAll<Color>(
-                      colors.surfaceContainerHigh,
-                    ),
-                    padding: const WidgetStatePropertyAll<EdgeInsets>(
-                      EdgeInsets.symmetric(horizontal: 16.0),
-                    ),
-                    onTap: () {
-                      controller.openView();
-                    },
-                    onChanged: (_) {
-                      controller.openView();
-                    },
-                    leading: const Icon(Icons.search),
-                    trailing: <Widget>[
-                      if (controller.text.isNotEmpty)
-                        IconButton(
-                          icon: const Icon(Icons.clear),
-                          onPressed: () {
-                            controller.clear();
-                          },
-                        ),
-                    ],
-                    hintText: 'Search deleted sessions...',
-                  );
-                },
-                suggestionsBuilder: (BuildContext context,
-                    SearchController controller) {
-                  return _getSearchSuggestions(controller);
-                },
-              ),
-              const SizedBox(height: 24),
+              if (!widget.isLargeScreen) ...[
+                SearchAnchor(
+                  searchController: _searchController,
+                  builder: (BuildContext context, SearchController controller) {
+                    return SearchBar(
+                      controller: controller,
+                      elevation: const WidgetStatePropertyAll<double>(0.0),
+                      backgroundColor: WidgetStatePropertyAll<Color>(
+                        colors.surfaceContainerHigh,
+                      ),
+                      padding: const WidgetStatePropertyAll<EdgeInsets>(
+                        EdgeInsets.symmetric(horizontal: 16.0),
+                      ),
+                      onTap: () {
+                        controller.openView();
+                      },
+                      onChanged: (_) {
+                        controller.openView();
+                      },
+                      leading: const Icon(Icons.search),
+                      trailing: <Widget>[
+                        if (controller.text.isNotEmpty)
+                          IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              controller.clear();
+                            },
+                          ),
+                      ],
+                      hintText: 'Search trash...',
+                    );
+                  },
+                  suggestionsBuilder: (BuildContext context,
+                      SearchController controller) {
+                    return _getSearchSuggestions(controller);
+                  },
+                ),
+                const SizedBox(height: 24),
+              ],
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
