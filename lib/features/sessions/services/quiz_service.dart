@@ -176,7 +176,13 @@ class QuizService {
     String studentId,
     int score,
     String feedback,
+    Map<String, QuizAnswer> answers,
   ) async {
+    final Map<String, Map<String, dynamic>> answersMap = {};
+    answers.forEach((key, value) {
+      answersMap[key] = value.toMap();
+    });
+
     await FirebaseFirestore.instance
         .collection('sessions')
         .doc(sessionId)
@@ -188,6 +194,7 @@ class QuizService {
           'score': score,
           'isGraded': true,
           'feedback': feedback.trim(),
+          'answers': answersMap,
         });
   }
 }

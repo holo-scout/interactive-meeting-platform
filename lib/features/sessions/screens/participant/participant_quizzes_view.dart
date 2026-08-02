@@ -543,7 +543,7 @@ class _QuizResultsView extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      appBar: AppBar(title: Text('quiz Results: ${quiz.title}')),
+      appBar: AppBar(title: Text('${quiz.title} quiz results ')),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
@@ -640,9 +640,12 @@ class _QuizResultsView extends StatelessWidget {
 
             return Card(
               margin: const EdgeInsets.only(bottom: 20),
-              elevation: 2,
+              elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
+                side: BorderSide(
+                  color: colors.outlineVariant.withValues(alpha: 0.5),
+                ),
               ),
               color: Colors.white,
               child: Padding(
@@ -668,6 +671,15 @@ class _QuizResultsView extends StatelessWidget {
                                 ? Icons.check_circle_outline
                                 : Icons.cancel_outlined,
                             color: isCorrect ? Colors.green : Colors.red,
+                          )
+                        else
+                          if (answer.isCorrect != null)
+                            Icon(
+                              answer.isCorrect!
+                                  ? Icons.check_circle_outline
+                                  : Icons.cancel_outlined,
+                              color:
+                              answer.isCorrect! ? Colors.green : Colors.red,
                           ),
                       ],
                     ),
@@ -681,15 +693,53 @@ class _QuizResultsView extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      ...answer.selectedOptions.map(
-                        (opt) => Padding(
+                      if (answer.selectedOptions.isEmpty)
+                        Padding(
                           padding: const EdgeInsets.only(top: 4),
                           child: Text(
-                            '- $opt',
-                            style: const TextStyle(color: Colors.black),
+                            'No answer selected',
+                            style: textTheme.bodyMedium?.copyWith(
+                              color: colors.onSurfaceVariant,
+                              fontStyle: FontStyle.italic,
+                            ),
                           ),
+                        )
+                      else
+                        ...answer.selectedOptions.map(
+                              (opt) =>
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Row(
+                                  children: [
+                                    if (question.type == 'multiple_choice')
+                                      Radio<bool>(
+                                        value: true,
+                                        groupValue: true,
+                                        onChanged: null,
+                                        visualDensity: VisualDensity.compact,
+                                        materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                      )
+                                    else
+                                      Checkbox(
+                                        value: true,
+                                        onChanged: null,
+                                        visualDensity: VisualDensity.compact,
+                                        materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        opt,
+                                        style: const TextStyle(
+                                            color: Colors.black),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                         ),
-                      ),
                       const SizedBox(height: 12),
                       Text(
                         'Correct answer:',
@@ -701,12 +751,40 @@ class _QuizResultsView extends StatelessWidget {
                       ...question.correctAnswers.map(
                         (opt) => Padding(
                           padding: const EdgeInsets.only(top: 4),
-                          child: Text(
-                            '- $opt',
-                            style: const TextStyle(
-                              color: Colors.green,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          child: Row(
+                            children: [
+                              if (question.type == 'multiple_choice')
+                                Radio<bool>(
+                                  value: true,
+                                  groupValue: true,
+                                  onChanged: null,
+                                  fillColor:
+                                  WidgetStateProperty.all(Colors.green),
+                                  visualDensity: VisualDensity.compact,
+                                  materialTapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                                )
+                              else
+                                Checkbox(
+                                  value: true,
+                                  onChanged: null,
+                                  fillColor:
+                                  WidgetStateProperty.all(Colors.green),
+                                  visualDensity: VisualDensity.compact,
+                                  materialTapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                                ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  opt,
+                                  style: const TextStyle(
+                                    color: Colors.green,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -766,6 +844,24 @@ class _QuizResultsView extends StatelessWidget {
                               base64Decode(question.correctImageBase64!),
                               fit: BoxFit.cover,
                             ),
+                          ),
+                        ),
+                      ],
+                      if (answer.teacherFeedback != null &&
+                          answer.teacherFeedback!.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          'Lecturer Feedback:',
+                          style: textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colors.primary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          answer.teacherFeedback!,
+                          style: textTheme.bodyMedium?.copyWith(
+                            fontStyle: FontStyle.italic,
                           ),
                         ),
                       ],

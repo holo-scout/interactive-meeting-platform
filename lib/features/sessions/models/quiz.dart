@@ -129,22 +129,30 @@ class QuizAnswer {
   final List<String> selectedOptions; // for MC and Checkbox
   final String? textResponse; // for open-ended text
   final String? base64Image; // for open-ended optional image
+  final bool? isCorrect; // for open-ended manual grading
+  final String? teacherFeedback; // for per-question lecturer feedback
 
   QuizAnswer({
     required this.selectedOptions,
     this.textResponse,
     this.base64Image,
+    this.isCorrect,
+    this.teacherFeedback,
   });
 
   QuizAnswer copyWith({
     List<String>? selectedOptions,
     String? textResponse,
     String? base64Image,
+    bool? isCorrect,
+    String? teacherFeedback,
   }) {
     return QuizAnswer(
       selectedOptions: selectedOptions ?? this.selectedOptions,
       textResponse: textResponse ?? this.textResponse,
       base64Image: base64Image ?? this.base64Image,
+      isCorrect: isCorrect ?? this.isCorrect,
+      teacherFeedback: teacherFeedback ?? this.teacherFeedback,
     );
   }
 
@@ -153,6 +161,8 @@ class QuizAnswer {
       'selectedOptions': selectedOptions,
       'textResponse': textResponse,
       'base64Image': base64Image,
+      'isCorrect': isCorrect,
+      'teacherFeedback': teacherFeedback,
     };
   }
 
@@ -161,6 +171,8 @@ class QuizAnswer {
       selectedOptions: List<String>.from(map['selectedOptions'] ?? []),
       textResponse: map['textResponse'],
       base64Image: map['base64Image'],
+      isCorrect: map['isCorrect'] as bool?,
+      teacherFeedback: map['teacherFeedback'] as String?,
     );
   }
 }

@@ -20,7 +20,7 @@ class QuizSubmissionsView extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      appBar: AppBar(title: Text('Submissions: ${quiz.title}')),
+      appBar: AppBar(title: Text('${quiz.title} submissions')),
       body: StreamBuilder<List<QuizSubmission>>(
         stream: QuizService().streamSubmissions(session.sessionID, quiz.quizId),
         builder: (context, snapshot) {

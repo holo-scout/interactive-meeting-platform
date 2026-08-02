@@ -69,29 +69,54 @@ class _AdminQuizzesViewState extends State<AdminQuizzesView> {
     );
   }
 
-  void _toggleReleaseStatus(Quiz quiz) async {
+  void _confirmReleaseQuiz(Quiz quiz) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) =>
+          AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: const Text('Release Quiz?'),
+            content: const Text(
+              'Once the quiz has been released, it can no longer be edited or changed back to a draft. Are you sure you want to release this quiz?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.pop(dialogContext);
+                  _releaseQuiz(quiz);
+                },
+                child: const Text('Release'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  void _releaseQuiz(Quiz quiz) async {
     final colors = Theme.of(context).colorScheme;
     final messenger = ScaffoldMessenger.of(context);
     try {
-      final updatedQuiz = quiz.copyWith(isReleased: !quiz.isReleased);
+      final updatedQuiz = quiz.copyWith(isReleased: true);
       await QuizService().createOrUpdateQuiz(
         widget.session.sessionID,
         updatedQuiz,
       );
       messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            quiz.isReleased
-                ? 'quiz set to Draft.'
-                : 'quiz released to participants!',
-          ),
+        const SnackBar(
+          content: Text('Quiz released to participants!'),
           backgroundColor: Colors.green,
         ),
       );
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text('Failed to toggle status: $e'),
+          content: Text('Failed to release quiz: $e'),
           backgroundColor: colors.error,
         ),
       );
@@ -114,7 +139,7 @@ class _AdminQuizzesViewState extends State<AdminQuizzesView> {
           return Center(
             child: Text(
               'Error loading quizzes: ${snapshot.error}',
-              style: TextStyle(color: colors.error),
+              style: textTheme.bodyLarge?.copyWith(color: colors.error),
             ),
           );
         }
@@ -123,32 +148,29 @@ class _AdminQuizzesViewState extends State<AdminQuizzesView> {
 
         if (quizzes.isEmpty) {
           return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.quiz_outlined, size: 56, color: colors.primary),
-                  const SizedBox(height: 16),
-                  Text('Quizzes', style: textTheme.headlineSmall),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Create and manage interactive quizzes for this session.',
-                    textAlign: TextAlign.center,
-                    style: textTheme.bodyLarge?.copyWith(
-                      color: colors.onSurfaceVariant,
-                    ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.quiz_outlined,
+                  size: 64,
+                  color: colors.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No quizzes created yet',
+                  style: textTheme.titleMedium?.copyWith(
+                    color: colors.onSurfaceVariant,
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Click the "+" button in the bar below to create a quiz.',
-                    textAlign: TextAlign.center,
-                    style: textTheme.bodySmall?.copyWith(
-                      color: colors.onSurfaceVariant,
-                    ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Click the button below to create your first quiz.',
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colors.onSurfaceVariant.withValues(alpha: 0.7),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           );
         }
@@ -158,9 +180,8 @@ class _AdminQuizzesViewState extends State<AdminQuizzesView> {
           itemCount: quizzes.length,
           itemBuilder: (context, index) {
             final quiz = quizzes[index];
-
             return Card(
-              margin: const EdgeInsets.only(bottom: 20),
+              margin: const EdgeInsets.only(bottom: 16),
               elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
@@ -172,15 +193,6 @@ class _AdminQuizzesViewState extends State<AdminQuizzesView> {
               child: InkWell(
                 borderRadius: BorderRadius.circular(16),
                 onTap: () {
-                  if (quiz.isReleased) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('You can only edit a draft quiz.'),
-                        backgroundColor: Colors.redAccent,
-                      ),
-                    );
-                    return;
-                  }
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -188,6 +200,7 @@ class _AdminQuizzesViewState extends State<AdminQuizzesView> {
                           ManageQuizQuestionsPage(
                             session: widget.session,
                             quiz: quiz,
+                            readOnly: quiz.isReleased,
                           ),
                     ),
                   );
@@ -256,59 +269,61 @@ class _AdminQuizzesViewState extends State<AdminQuizzesView> {
                                 color: colors.error.withValues(alpha: 0.5),
                               ),
                             ),
-                            tooltip: 'Delete quiz',
+                            tooltip: 'Delete Quiz',
                           ),
-                          const SizedBox(width: 8),
-                          IconButton.outlined(
-                            onPressed: () => _toggleReleaseStatus(quiz),
-                            icon: Icon(
-                              quiz.isReleased
-                                  ? Icons.drafts_outlined
-                                  : Icons.publish_outlined,
+                          if (!quiz.isReleased) ...[
+                            const SizedBox(width: 8),
+                            IconButton.outlined(
+                              onPressed: () => _confirmReleaseQuiz(quiz),
+                              icon: const Icon(Icons.publish_outlined),
+                              tooltip: 'Release Quiz',
                             ),
-                            tooltip: quiz.isReleased
-                                ? 'Revert to Draft'
-                                : 'Release quiz',
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton.outlined(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => QuizSubmissionsView(
-                                    session: widget.session,
-                                        quiz: quiz,
-                                      ),
-                                ),
-                              );
-                            },
-                            icon: const Icon(Icons.people_outline),
-                            tooltip: 'View Submissions',
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton.outlined(
-                            onPressed: () {
-                              showModalBottomSheet(
-                                context: context,
-                                isScrollControlled: true,
-                                showDragHandle: true,
-                                useSafeArea: true,
-                                shape: const RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.vertical(
-                                    top: Radius.circular(24),
-                                  )),
-                                builder: (context) {
-                                  return _EditQuizBottomSheet(
-                                    sessionID: widget.session.sessionID,
-                                    quiz: quiz,
-                                  );
-                                },
-                              );
-                            },
-                            icon: const Icon(Icons.edit_outlined),
-                            tooltip: 'Edit quiz Details',
-                          ),
+                          ],
+                          if (quiz.isReleased) ...[
+                            const SizedBox(width: 8),
+                            IconButton.outlined(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        QuizSubmissionsView(
+                                          session: widget.session,
+                                          quiz: quiz,
+                                        ),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.people_outline),
+                              tooltip: 'View Submissions',
+                            ),
+                          ],
+                          if (!quiz.isReleased) ...[
+                            const SizedBox(width: 8),
+                            IconButton.outlined(
+                              onPressed: () {
+                                showModalBottomSheet(
+                                  context: context,
+                                  isScrollControlled: true,
+                                  showDragHandle: true,
+                                  useSafeArea: true,
+                                  shape: const RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.vertical(
+                                      top: Radius.circular(24),
+                                    ),
+                                  ),
+                                  builder: (context) {
+                                    return _EditQuizBottomSheet(
+                                      sessionID: widget.session.sessionID,
+                                      quiz: quiz,
+                                    );
+                                  },
+                                );
+                              },
+                              icon: const Icon(Icons.edit_outlined),
+                              tooltip: 'Edit Quiz Details',
+                            ),
+                          ],
                         ],
                       ),
                     ],

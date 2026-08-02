@@ -13,10 +13,12 @@ class ManageQuizQuestionsPage extends StatefulWidget {
     super.key,
     required this.session,
     required this.quiz,
+    this.readOnly,
   });
 
   final Session session;
   final Quiz quiz;
+  final bool? readOnly;
 
   @override
   State<ManageQuizQuestionsPage> createState() =>
@@ -27,6 +29,9 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
   final _formKey = GlobalKey<FormState>();
   final List<Map<String, dynamic>> _questions = [];
   bool _isShowingDialog = false;
+  bool _hasChanges = false;
+
+  bool get isReadOnly => (widget.readOnly ?? false) || widget.quiz.isReleased;
 
   @override
   void initState() {
@@ -49,13 +54,25 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
           }
         }
 
+        final qId = question.questionId.isNotEmpty
+            ? question.questionId
+            : 'q_${DateTime
+            .now()
+            .millisecondsSinceEpoch}_${_questions.length}';
+        final optsList = List<String>.from(
+          question.options.isNotEmpty ? question.options : ['', ''],
+        );
+        final optionIds = List.generate(
+          optsList.length,
+              (i) => 'opt_${qId}_$i',
+        );
+
         _questions.add({
-          'questionId': question.questionId,
+          'questionId': qId,
           'type': question.type,
           'questionText': question.questionText,
-          'options': List<String>.from(
-            question.options.isNotEmpty ? question.options : ['', ''],
-          ),
+          'options': optsList,
+          'optionIds': optionIds,
           'correctOptionIndex': correctIdx,
           'correctOptionIndices': correctIndices,
           'correctAnswerText':
@@ -72,13 +89,25 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
   }
 
   void _addQuestion(String type) {
+    if (isReadOnly) return;
     setState(() {
+      _hasChanges = true;
+      final qId =
+          'q_${DateTime
+          .now()
+          .millisecondsSinceEpoch}_${_questions.length}';
+      final optsList = type == 'open_ended' ? <String>[] : <String>['', ''];
+      final optionIds = List.generate(
+        optsList.length,
+            (i) => 'opt_${qId}_$i',
+      );
+
       _questions.add({
-        'questionId':
-            'q_${DateTime.now().millisecondsSinceEpoch}_${_questions.length}',
+        'questionId': qId,
         'type': type,
         'questionText': '',
-        'options': type == 'open_ended' ? <String>[] : <String>['', ''],
+        'options': optsList,
+        'optionIds': optionIds,
         'correctOptionIndex': 0,
         'correctOptionIndices': <int>[0],
         'correctAnswerText': '',
@@ -88,6 +117,7 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
   }
 
   Future<void> _pickSuggestedAnswerImage(int qIndex) async {
+    if (isReadOnly) return;
     final colors = Theme.of(context).colorScheme;
     final picker = ImagePicker();
     final XFile? image = await picker.pickImage(
@@ -102,6 +132,7 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
       final base64String = base64Encode(bytes);
       setState(() {
         _questions[qIndex]['correctImageBase64'] = base64String;
+        _hasChanges = true;
       });
     } catch (e) {
       if (mounted) {
@@ -281,19 +312,27 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
             }
           }
 
+          final qId =
+              'q_${DateTime
+              .now()
+              .millisecondsSinceEpoch}_${_questions.length +
+              newQuestionMaps.length}';
+          final optsList = List<String>.from(
+            question.options.isNotEmpty
+                ? question.options
+                : (question.type == 'open_ended' ? [] : ['', '']),
+          );
+          final optionIds = List.generate(
+            optsList.length,
+                (i) => 'opt_${qId}_$i',
+          );
+
           newQuestionMaps.add({
-            'questionId':
-            'q_${DateTime
-                .now()
-                .millisecondsSinceEpoch}_${_questions.length +
-                newQuestionMaps.length}',
+            'questionId': qId,
             'type': question.type,
             'questionText': question.questionText,
-            'options': List<String>.from(
-              question.options.isNotEmpty
-                  ? question.options
-                  : (question.type == 'open_ended' ? [] : ['', '']),
-            ),
+            'options': optsList,
+            'optionIds': optionIds,
             'correctOptionIndex': correctIdx,
             'correctOptionIndices': correctIndices,
             'correctAnswerText': question.type == 'open_ended' &&
@@ -461,29 +500,60 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
   }
 
   void _removeQuestion(int index) {
+    if (isReadOnly) return;
     setState(() {
       _questions.removeAt(index);
+      _hasChanges = true;
     });
   }
 
   void _addOption(int qIndex) {
+    if (isReadOnly) return;
     setState(() {
       final opts = _questions[qIndex]['options'] as List<String>;
+      var optionIds = _questions[qIndex]['optionIds'] as List<String>?;
+      if (optionIds == null) {
+        optionIds = List.generate(
+          opts.length,
+              (i) => 'opt_${_questions[qIndex]['questionId']}_$i',
+        );
+        _questions[qIndex]['optionIds'] = optionIds;
+      }
+
       if (opts.length < 10) {
         opts.add('');
+        optionIds.add(
+          'opt_${_questions[qIndex]['questionId']}_${DateTime
+              .now()
+              .microsecondsSinceEpoch}',
+        );
+        _hasChanges = true;
       }
     });
   }
 
   void _removeOption(int qIndex, int optIndex) {
+    if (isReadOnly) return;
     setState(() {
       final opts = _questions[qIndex]['options'] as List<String>;
+      var optionIds = _questions[qIndex]['optionIds'] as List<String>?;
+      if (optionIds == null) {
+        optionIds = List.generate(
+          opts.length,
+              (i) => 'opt_${_questions[qIndex]['questionId']}_$i',
+        );
+        _questions[qIndex]['optionIds'] = optionIds;
+      }
       final correctIndices =
           _questions[qIndex]['correctOptionIndices'] as List<int>;
       final correctIdx = _questions[qIndex]['correctOptionIndex'] as int;
 
       if (opts.length > 2) {
         opts.removeAt(optIndex);
+        if (optionIds.length > optIndex) {
+          optionIds.removeAt(optIndex);
+        }
+
         if (correctIdx == optIndex) {
           _questions[qIndex]['correctOptionIndex'] = 0;
         } else if (correctIdx > optIndex) {
@@ -495,6 +565,7 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
           return idx > optIndex ? idx - 1 : idx;
         }).toList();
         _questions[qIndex]['correctOptionIndices'] = updatedIndices;
+        _hasChanges = true;
       }
     });
   }
@@ -530,6 +601,41 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
           fontWeight: FontWeight.bold,
           color: textColor,
         ),
+      ),
+    );
+  }
+
+  bool _hasEmptyFields() {
+    _formKey.currentState?.validate();
+
+    for (final qMap in _questions) {
+      final qText = (qMap['questionText'] as String? ?? '').trim();
+      if (qText.isEmpty) return true;
+
+      final qType = qMap['type'] as String? ?? 'multiple_choice';
+      if (qType == 'multiple_choice' || qType == 'checkbox') {
+        final opts = (qMap['options'] as List<String>? ?? []);
+        if (opts.isEmpty) return true;
+        for (final opt in opts) {
+          if (opt
+              .trim()
+              .isEmpty) return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  void _showEmptyFieldsSnackBar() {
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Please fill in all empty fields.'),
+        backgroundColor: Theme
+            .of(context)
+            .colorScheme
+            .error,
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
@@ -620,11 +726,20 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
           ScaffoldMessenger.of(context).clearSnackBars();
           return;
         }
+        if (isReadOnly || !_hasChanges) {
+          ScaffoldMessenger.of(context).clearSnackBars();
+          Navigator.of(context).pop();
+          return;
+        }
+        if (_hasEmptyFields()) {
+          _showEmptyFieldsSnackBar();
+          return;
+        }
         _showUnsavedChangesDialog();
       },
       child: Scaffold(
         appBar: AppBar(
-          leadingWidth: 200,
+          leadingWidth: isReadOnly ? 80 : 200,
           leading: Padding(
             padding: const EdgeInsets.only(left: 16.0, top: 8.0, bottom: 8.0),
             child: Row(
@@ -638,39 +753,42 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
                     foregroundColor: colors.onSurface,
                   ),
                 ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.auto_awesome),
-                  onPressed: _showAiGenerationBottomSheet,
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.grey.shade100,
-                    foregroundColor: colors.onSurface,
+                if (!isReadOnly) ...[
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.auto_awesome),
+                    onPressed: _showAiGenerationBottomSheet,
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.grey.shade100,
+                      foregroundColor: colors.onSurface,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.add),
-                  onPressed: _showAddQuestionBottomSheet,
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.grey.shade100,
-                    foregroundColor: colors.onSurface,
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.add),
+                    onPressed: _showAddQuestionBottomSheet,
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.grey.shade100,
+                      foregroundColor: colors.onSurface,
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
           actions: [
-            Padding(
-              padding: const EdgeInsets.only(
-                right: 20.0,
-                top: 8.0,
-                bottom: 8.0,
+            if (!isReadOnly)
+              Padding(
+                padding: const EdgeInsets.only(
+                  right: 20.0,
+                  top: 8.0,
+                  bottom: 8.0,
+                ),
+                child: FilledButton(
+                  onPressed: _saveQuestions,
+                  child: const Text('Save'),
+                ),
               ),
-              child: FilledButton(
-                onPressed: _saveQuestions,
-                child: const Text('Save'),
-              ),
-            ),
           ],
         ),
         body: Form(
@@ -678,11 +796,34 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
           child: ListView(
             padding: const EdgeInsets.all(20),
             children: [
-              Text(
-                'Questions (${_questions.length})',
-                style: textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Questions (${_questions.length})',
+                    style: textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  if (isReadOnly)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colors.primaryContainer,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'Released (Read Only)',
+                        style: textTheme.labelSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: colors.onPrimaryContainer,
+                        ),
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(height: 16),
 
@@ -695,11 +836,18 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
                 final correctIndices =
                     qMap['correctOptionIndices'] as List<int>;
 
+                final qId =
+                    qMap['questionId'] as String? ?? 'q_$qIndex';
+
                 return Card(
+                  key: ValueKey(qId),
                   margin: const EdgeInsets.only(bottom: 24),
-                  elevation: 2,
+                  elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(
+                      color: colors.outlineVariant.withValues(alpha: 0.5),
+                    ),
                   ),
                   color: Colors.white,
                   child: Padding(
@@ -722,7 +870,7 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
                                 _buildTypeBadge(qType, colors, textTheme),
                               ],
                             ),
-                            if (_questions.length > 1)
+                            if (!isReadOnly && _questions.length > 1)
                               IconButton(
                                 icon: Icon(
                                   Icons.delete_outline,
@@ -734,6 +882,7 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
                         ),
                         const SizedBox(height: 12),
                         TextFormField(
+                          readOnly: isReadOnly,
                           initialValue: qMap['questionText'] as String,
                           decoration: InputDecoration(
                             labelText: 'Question Text',
@@ -749,6 +898,7 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
                           },
                           onChanged: (val) {
                             qMap['questionText'] = val.trim();
+                            _hasChanges = true;
                           },
                         ),
                         const SizedBox(height: 16),
@@ -765,7 +915,9 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
                                 ),
                               ),
                               Text(
-                                'Mark correct answers',
+                                isReadOnly
+                                    ? 'Correct answers'
+                                    : 'Mark correct answers',
                                 style: textTheme.bodySmall?.copyWith(
                                   color: colors.onSurfaceVariant,
                                 ),
@@ -776,8 +928,20 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
                           ...opts.asMap().entries.map((optEntry) {
                             final optIndex = optEntry.key;
                             final optText = optEntry.value;
+                            var optionIds =
+                            qMap['optionIds'] as List<String>?;
+                            if (optionIds == null ||
+                                optionIds.length != opts.length) {
+                              optionIds = List.generate(
+                                opts.length,
+                                    (i) => 'opt_${qMap['questionId']}_$i',
+                              );
+                              qMap['optionIds'] = optionIds;
+                            }
+                            final optId = optionIds[optIndex];
 
                             return Padding(
+                              key: ValueKey(optId),
                               padding: const EdgeInsets.only(bottom: 8.0),
                               child: Row(
                                 children: [
@@ -785,10 +949,14 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
                                     Radio<int>(
                                       value: optIndex,
                                       groupValue: correctIdx,
-                                      onChanged: (val) {
+                                      onChanged: isReadOnly
+                                          ? null
+                                          : (val) {
                                         if (val != null) {
                                           setState(() {
-                                            qMap['correctOptionIndex'] = val;
+                                            qMap['correctOptionIndex'] =
+                                                val;
+                                            _hasChanges = true;
                                           });
                                         }
                                       },
@@ -796,19 +964,23 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
                                   else
                                     Checkbox(
                                       value: correctIndices.contains(optIndex),
-                                      onChanged: (val) {
+                                      onChanged: isReadOnly
+                                          ? null
+                                          : (val) {
                                         setState(() {
                                           if (val == true) {
                                             correctIndices.add(optIndex);
                                           } else {
                                             correctIndices.remove(optIndex);
                                           }
+                                          _hasChanges = true;
                                         });
                                       },
                                     ),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: TextFormField(
+                                      readOnly: isReadOnly,
                                       initialValue: optText,
                                       decoration: InputDecoration(
                                         labelText: 'Option ${optIndex + 1}',
@@ -820,6 +992,7 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
                                       ),
                                       onChanged: (val) {
                                         opts[optIndex] = val.trim();
+                                        _hasChanges = true;
                                       },
                                       validator: (value) {
                                         if (value == null ||
@@ -830,7 +1003,7 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
                                       },
                                     ),
                                   ),
-                                  if (opts.length > 2) ...[
+                                  if (!isReadOnly && opts.length > 2) ...[
                                     const SizedBox(width: 8),
                                     IconButton(
                                       icon: Icon(
@@ -845,7 +1018,7 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
                               ),
                             );
                           }).toList(),
-                          if (opts.length < 10) ...[
+                          if (!isReadOnly && opts.length < 10) ...[
                             TextButton.icon(
                               onPressed: () => _addOption(qIndex),
                               icon: const Icon(Icons.add),
@@ -863,6 +1036,7 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
                           ),
                           const SizedBox(height: 16),
                           TextFormField(
+                            readOnly: isReadOnly,
                             initialValue:
                                 qMap['correctAnswerText'] as String? ?? '',
                             decoration: InputDecoration(
@@ -876,6 +1050,7 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
                             maxLines: 3,
                             onChanged: (val) {
                               qMap['correctAnswerText'] = val.trim();
+                              _hasChanges = true;
                             },
                           ),
                           const SizedBox(height: 12),
@@ -920,19 +1095,22 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
                                           color: Colors.black87,
                                         ),
                                       ),
-                                      const SizedBox(width: 16),
-                                      InkWell(
-                                        onTap: () {
-                                          setState(() {
-                                            qMap['correctImageBase64'] = null;
-                                          });
-                                        },
-                                        child: const Icon(
-                                          Icons.close,
-                                          size: 16,
-                                          color: Colors.black54,
+                                      if (!isReadOnly) ...[
+                                        const SizedBox(width: 16),
+                                        InkWell(
+                                          onTap: () {
+                                            setState(() {
+                                              qMap['correctImageBase64'] = null;
+                                              _hasChanges = true;
+                                            });
+                                          },
+                                          child: const Icon(
+                                            Icons.close,
+                                            size: 16,
+                                            color: Colors.black54,
+                                          ),
                                         ),
-                                      ),
+                                      ],
                                     ],
                                   ),
                                 ),
@@ -953,7 +1131,8 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
                                 ),
                               ),
                             ),
-                          ] else ...[
+                          ] else
+                            if (!isReadOnly) ...[
                             OutlinedButton.icon(
                               onPressed: () =>
                                   _pickSuggestedAnswerImage(qIndex),
@@ -979,7 +1158,10 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
   }
 
   void _saveQuestions() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (_hasEmptyFields()) {
+      _showEmptyFieldsSnackBar();
+      return;
+    }
 
     final colors = Theme.of(context).colorScheme;
     final messenger = ScaffoldMessenger.of(context);
@@ -1046,6 +1228,7 @@ class _ManageQuizQuestionsPageState extends State<ManageQuizQuestionsPage> {
         widget.session.sessionID,
         updatedQuiz,
       );
+      _hasChanges = false;
       messenger.showSnackBar(
         const SnackBar(
           content: Text('quiz questions saved successfully!'),
