@@ -208,232 +208,236 @@ class _TrashPageState extends State<TrashPage> {
       }
     }
 
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 800),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (!widget.isLargeScreen) ...[
-                SearchAnchor(
-                  searchController: _searchController,
-                  builder: (BuildContext context, SearchController controller) {
-                    return SearchBar(
-                      controller: controller,
-                      elevation: const WidgetStatePropertyAll<double>(0.0),
-                      backgroundColor: WidgetStatePropertyAll<Color>(
-                        colors.surfaceContainerHigh,
-                      ),
-                      padding: const WidgetStatePropertyAll<EdgeInsets>(
-                        EdgeInsets.symmetric(horizontal: 16.0),
-                      ),
-                      onTap: () {
-                        controller.openView();
-                      },
-                      onChanged: (_) {
-                        controller.openView();
-                      },
-                      leading: const Icon(Icons.search),
-                      trailing: <Widget>[
-                        if (controller.text.isNotEmpty)
-                          IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              controller.clear();
-                            },
-                          ),
-                      ],
-                      hintText: 'Search trash...',
-                    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!widget.isLargeScreen) ...[
+            SearchAnchor(
+              searchController: _searchController,
+              builder: (BuildContext context, SearchController controller) {
+                return SearchBar(
+                  controller: controller,
+                  elevation: const WidgetStatePropertyAll<double>(0.0),
+                  backgroundColor: WidgetStatePropertyAll<Color>(
+                    colors.surfaceContainerHigh,
+                  ),
+                  padding: const WidgetStatePropertyAll<EdgeInsets>(
+                    EdgeInsets.symmetric(horizontal: 16.0),
+                  ),
+                  onTap: () {
+                    controller.openView();
                   },
-                  suggestionsBuilder: (BuildContext context,
-                      SearchController controller) {
-                    return _getSearchSuggestions(controller);
+                  onChanged: (_) {
+                    controller.openView();
                   },
-                ),
-                const SizedBox(height: 24),
-              ],
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: _buildSortFilterChips(colors),
+                  leading: const Icon(Icons.search),
+                  trailing: <Widget>[
+                    if (controller.text.isNotEmpty)
+                      IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          controller.clear();
+                        },
+                      ),
+                  ],
+                  hintText: 'Search trash...',
+                );
+              },
+              suggestionsBuilder:
+                  (BuildContext context, SearchController controller) {
+                return _getSearchSuggestions(controller);
+              },
+            ),
+            const SizedBox(height: 24),
+          ],
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: _buildSortFilterChips(colors),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: filteredSessions.isEmpty
+                ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.delete_outline_rounded,
+                      size: 80,
+                      color:
+                      colors.onSurfaceVariant.withValues(alpha: 0.4),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Trash is Empty',
+                      style: textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Sessions you delete will appear here for recovery.',
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: colors.onSurfaceVariant
+                            .withValues(alpha: 0.7),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: filteredSessions.isEmpty
-                    ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32.0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.delete_outline_rounded,
-                          size: 80,
-                          color: colors.onSurfaceVariant.withValues(alpha: 0.4),
+            )
+                : ListView.builder(
+              padding: const EdgeInsets.symmetric(
+                vertical: 8,
+              ),
+              itemCount: filteredSessions.length,
+              itemBuilder: (context, index) {
+                return _buildTrashSessionCard(
+                  filteredSessions[index],
+                  colors,
+                  textTheme,
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrashSessionCard(Session session, ColorScheme colors,
+      TextTheme textTheme) {
+    final isExpired = session.isExpired;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(
+          color: colors.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      color: colors.surfaceContainerLow,
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        session.title,
+                        style: textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: colors.onSurface,
+                          decoration: TextDecoration.lineThrough,
+                          decorationColor: colors.onSurfaceVariant
+                              .withValues(alpha: 0.5),
                         ),
-                        const SizedBox(height: 16),
+                      ),
+                      if (session.subtitle.isNotEmpty) ...[
+                        const SizedBox(height: 4),
                         Text(
-                          'Trash is Empty',
-                          style: textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
+                          session.subtitle,
+                          style: textTheme.bodyMedium?.copyWith(
                             color: colors.onSurfaceVariant,
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Sessions you delete will appear here for recovery.',
-                          style: textTheme.bodyMedium?.copyWith(
-                            color: colors.onSurfaceVariant.withValues(
-                                alpha: 0.7),
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
                       ],
-                    ),
+                    ],
                   ),
-                )
-                    : ListView.builder(
+                ),
+                const SizedBox(width: 8),
+                Container(
                   padding: const EdgeInsets.symmetric(
-                    vertical: 8,
+                    horizontal: 10,
+                    vertical: 4,
                   ),
-                  itemCount: filteredSessions.length,
-                  itemBuilder: (context, index) {
-                    final session = filteredSessions[index];
-                    final isExpired = session.isExpired;
-
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                        side: BorderSide(
-                          color: colors.outlineVariant.withValues(alpha: 0.5),
-                        ),
-                      ),
-                      color: colors.surfaceContainerLow,
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      session.title,
-                                      style: textTheme.titleMedium?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: colors.onSurface,
-                                        decoration: TextDecoration.lineThrough,
-                                        decorationColor: colors.onSurfaceVariant
-                                            .withValues(alpha: 0.5),
-                                      ),
-                                    ),
-                                    if (session.subtitle.isNotEmpty) ...[
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        session.subtitle,
-                                        style: textTheme.bodyMedium?.copyWith(
-                                          color: colors.onSurfaceVariant,
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isExpired
-                                      ? colors.error.withValues(alpha: 0.1)
-                                      : colors.primary.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  isExpired ? 'Expired' : 'Active',
-                                  style: textTheme.labelSmall?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: isExpired
-                                        ? colors.error
-                                        : colors.primary,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              OutlinedButton.icon(
-                                onPressed: () {
-                                  _sessionService.restoreSession(
-                                    session.sessionID,
-                                  );
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        'Restored "${session.title}"',
-                                      ),
-                                      backgroundColor: Colors.green,
-                                    ),
-                                  );
-                                },
-                                icon: const Icon(
-                                  Icons.restore_rounded,
-                                  size: 18,
-                                ),
-                                label: const Text('Restore'),
-                                style: OutlinedButton.styleFrom(
-                                  shape: const StadiumBorder(),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 8,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              FilledButton.icon(
-                                onPressed: () =>
-                                    _confirmDelete(context, session),
-                                icon: const Icon(
-                                  Icons.delete_forever_rounded,
-                                  size: 18,
-                                ),
-                                label: const Text('Delete Forever'),
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: colors.error,
-                                  foregroundColor: colors.onError,
-                                  shape: const StadiumBorder(),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 8,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                  decoration: BoxDecoration(
+                    color: isExpired
+                        ? colors.error.withValues(alpha: 0.1)
+                        : colors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    isExpired ? 'Expired' : 'Active',
+                    style: textTheme.labelSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: isExpired
+                          ? colors.error
+                          : colors.primary,
                     ),
-                  );
-                },
-              ),
-              ),
-            ],
-          ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () {
+                    _sessionService.restoreSession(
+                      session.sessionID,
+                    );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Restored "${session.title}"',
+                        ),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  },
+                  icon: const Icon(
+                    Icons.restore_rounded,
+                    size: 18,
+                  ),
+                  label: const Text('Restore'),
+                  style: OutlinedButton.styleFrom(
+                    shape: const StadiumBorder(),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                FilledButton.icon(
+                  onPressed: () =>
+                      _confirmDelete(context, session),
+                  icon: const Icon(
+                    Icons.delete_forever_rounded,
+                    size: 18,
+                  ),
+                  label: const Text('Delete Forever'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: colors.error,
+                    foregroundColor: colors.onError,
+                    shape: const StadiumBorder(),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

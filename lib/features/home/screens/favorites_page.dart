@@ -215,144 +215,139 @@ class _FavoritesPageState extends State<FavoritesPage> {
       }
     }
 
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 800),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (!widget.isLargeScreen) ...[
-                SearchAnchor(
-                  searchController: _searchController,
-                  builder: (BuildContext context, SearchController controller) {
-                    return SearchBar(
-                      controller: controller,
-                      elevation: const WidgetStatePropertyAll<double>(0.0),
-                      backgroundColor: WidgetStatePropertyAll<Color>(
-                        colors.surfaceContainerHigh,
-                      ),
-                      padding: const WidgetStatePropertyAll<EdgeInsets>(
-                        EdgeInsets.symmetric(horizontal: 16.0),
-                      ),
-                      onTap: () {
-                        controller.openView();
-                      },
-                      onChanged: (_) {
-                        controller.openView();
-                      },
-                      leading: const Icon(Icons.search),
-                      trailing: <Widget>[
-                        if (controller.text.isNotEmpty)
-                          IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              controller.clear();
-                            },
-                          ),
-                      ],
-                      hintText: 'Search favorites...',
-                    );
-                  },
-                  suggestionsBuilder: (BuildContext context,
-                      SearchController controller) {
-                    return _getSearchSuggestions(controller);
-                  },
-                ),
-                const SizedBox(height: 24),
-              ],
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: _buildSortFilterChips(colors),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: filteredSessions.isEmpty
-                    ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32.0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.favorite_border_rounded,
-                          size: 80,
-                          color: colors.onSurfaceVariant.withValues(alpha: 0.4),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No Favorites Found',
-                          style: textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: colors.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Your favorite sessions will appear here.',
-                          style: textTheme.bodyMedium?.copyWith(
-                            color: colors.onSurfaceVariant.withValues(
-                                alpha: 0.7),
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!widget.isLargeScreen) ...[
+            SearchAnchor(
+              searchController: _searchController,
+              builder: (BuildContext context, SearchController controller) {
+                return SearchBar(
+                  controller: controller,
+                  elevation: const WidgetStatePropertyAll<double>(0.0),
+                  backgroundColor: WidgetStatePropertyAll<Color>(
+                    colors.surfaceContainerHigh,
                   ),
-                )
-                    : ListView.builder(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 8,
+                  padding: const WidgetStatePropertyAll<EdgeInsets>(
+                    EdgeInsets.symmetric(horizontal: 16.0),
                   ),
-                  itemCount: filteredSessions.length,
-                  itemBuilder: (context, index) {
-                    final session = filteredSessions[index];
-                    final isShortcut = _sessionService.isSessionShortcut(
-                      session.sessionID,
-                    );
-                    final isFavorite = _sessionService.isSessionFavorite(
-                      session.sessionID,
-                    );
-
-                    return SessionCard(
-                      session: session,
-                      isShortcut: isShortcut,
-                      isFavorite: isFavorite,
-                      onFavoriteToggle: () {
-                        _sessionService.toggleFavorite(session.sessionID);
-                      },
-                      onTap: () {
-                        final page = isShortcut
-                            ? ParticipantSessionPage(session: session)
-                            : AdministratorSessionPage(session: session);
-                        Navigator.of(
-                          context,
-                        ).push(MaterialPageRoute(builder: (_) => page));
-                      },
-                      onDelete: () {
-                        _sessionService.deleteSession(session.sessionID);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              isShortcut
-                                  ? 'Shortcut removed.'
-                                  : 'Session moved to Trash.',
-                            ),
-                          ),
-                        );
-                      },
-                      onMoveToFolder: () => _showMoveToFolderDialog(session),
-                    );
+                  onTap: () {
+                    controller.openView();
                   },
-                ),
-              ),
-            ],
+                  onChanged: (_) {
+                    controller.openView();
+                  },
+                  leading: const Icon(Icons.search),
+                  trailing: <Widget>[
+                    if (controller.text.isNotEmpty)
+                      IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          controller.clear();
+                        },
+                      ),
+                  ],
+                  hintText: 'Search favorites...',
+                );
+              },
+              suggestionsBuilder:
+                  (BuildContext context, SearchController controller) {
+                return _getSearchSuggestions(controller);
+              },
+            ),
+            const SizedBox(height: 24),
+          ],
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: _buildSortFilterChips(colors),
+            ),
           ),
-        ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: filteredSessions.isEmpty
+                ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.favorite_border_rounded,
+                      size: 80,
+                      color:
+                      colors.onSurfaceVariant.withValues(alpha: 0.4),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No Favorites Found',
+                      style: textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Your favorite sessions will appear here.',
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: colors.onSurfaceVariant
+                            .withValues(alpha: 0.7),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            )
+                : ListView.builder(
+              padding: const EdgeInsets.symmetric(
+                vertical: 8,
+              ),
+              itemCount: filteredSessions.length,
+              itemBuilder: (context, index) {
+                return _buildFavoriteSessionCard(
+                  filteredSessions[index],
+                );
+              },
+            ),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildFavoriteSessionCard(Session session) {
+    final isShortcut = _sessionService.isSessionShortcut(session.sessionID);
+    final isFavorite = _sessionService.isSessionFavorite(session.sessionID);
+
+    return SessionCard(
+      session: session,
+      isShortcut: isShortcut,
+      isFavorite: isFavorite,
+      onFavoriteToggle: () {
+        _sessionService.toggleFavorite(session.sessionID);
+      },
+      onTap: () {
+        final page = isShortcut
+            ? ParticipantSessionPage(session: session)
+            : AdministratorSessionPage(session: session);
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => page),
+        );
+      },
+      onDelete: () {
+        _sessionService.deleteSession(session.sessionID);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isShortcut ? 'Shortcut removed.' : 'Session moved to Trash.',
+            ),
+          ),
+        );
+      },
+      onMoveToFolder: () => _showMoveToFolderDialog(session),
     );
   }
 

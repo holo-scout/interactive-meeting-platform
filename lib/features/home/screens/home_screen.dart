@@ -696,230 +696,222 @@ class _HomeScreenState extends State<HomeScreen> {
     final folders = _sessionService.getFolders();
 
     return SingleChildScrollView(
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 800),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 24.0,
-              vertical: 16.0,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (!isLargeScreen) ...[
-                  SearchAnchor(
-                    searchController: _searchController,
-                    builder:
-                        (BuildContext context, SearchController controller) {
-                      return SearchBar(
-                        controller: controller,
-                        elevation: const WidgetStatePropertyAll<double>(0.0),
-                        backgroundColor: WidgetStatePropertyAll<Color>(
-                          colors.surfaceContainerHigh,
-                        ),
-                        padding: const WidgetStatePropertyAll<EdgeInsets>(
-                          EdgeInsets.symmetric(horizontal: 16.0),
-                        ),
-                        onTap: () {
-                          controller.openView();
-                        },
-                        onChanged: (_) {
-                          controller.openView();
-                        },
-                        leading: const Icon(Icons.search),
-                        trailing: <Widget>[
-                          if (controller.text.isNotEmpty)
-                            IconButton(
-                              icon: const Icon(Icons.clear),
-                              onPressed: () {
-                                controller.clear();
-                              },
-                            ),
-                        ],
-                        hintText: 'Search sessions, folders, favorites...',
-                      );
-                    },
-                    suggestionsBuilder: (BuildContext context,
-                        SearchController controller) {
-                      return _getSearchSuggestions(controller);
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                ],
-                // Folders Grid Section
-                if (!isLargeScreen && folders.isNotEmpty) ...[
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate:
-                    const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      mainAxisExtent: 48,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 24.0,
+          vertical: 16.0,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (!isLargeScreen) ...[
+              SearchAnchor(
+                searchController: _searchController,
+                builder: (BuildContext context, SearchController controller) {
+                  return SearchBar(
+                    controller: controller,
+                    elevation: const WidgetStatePropertyAll<double>(0.0),
+                    backgroundColor: WidgetStatePropertyAll<Color>(
+                      colors.surfaceContainerHigh,
                     ),
-                    itemCount: folders.length > 4 ? 4 : folders.length,
-                    itemBuilder: (context, index) {
-                      final folder = folders[index];
-                      return OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  FolderDetailsPage(folder: folder),
-                            ),
-                          );
-                        },
-                        icon: Icon(
-                          Icons.folder,
-                          color: colors.onSurfaceVariant,
+                    padding: const WidgetStatePropertyAll<EdgeInsets>(
+                      EdgeInsets.symmetric(horizontal: 16.0),
+                    ),
+                    onTap: () {
+                      controller.openView();
+                    },
+                    onChanged: (_) {
+                      controller.openView();
+                    },
+                    leading: const Icon(Icons.search),
+                    trailing: <Widget>[
+                      if (controller.text.isNotEmpty)
+                        IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            controller.clear();
+                          },
                         ),
-                        label: Text(
-                          folder.name,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          shape: const StadiumBorder(),
-                          side: BorderSide(
-                            color: colors.outlineVariant.withValues(alpha: 0.5),
-                          ),
-                          foregroundColor: colors.onSurface,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                    ],
+                    hintText: 'Search sessions, folders, favorites...',
+                  );
+                },
+                suggestionsBuilder:
+                    (BuildContext context, SearchController controller) {
+                  return _getSearchSuggestions(controller);
+                },
+              ),
+              const SizedBox(height: 24),
+            ],
+            // Folders Grid Section
+            if (!isLargeScreen && folders.isNotEmpty) ...[
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  mainAxisExtent: 48,
+                ),
+                itemCount: folders.length > 4 ? 4 : folders.length,
+                itemBuilder: (context, index) {
+                  final folder = folders[index];
+                  return OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              FolderDetailsPage(folder: folder),
                         ),
                       );
                     },
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                // More Folders text button
-                if (!isLargeScreen) ...[
-                  Center(
-                    child: TextButton.icon(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (context) => const FoldersPage()),
-                        );
-                      },
-                      icon: const Icon(Icons.chevron_right_rounded),
-                      label: const Text('More folders'),
+                    icon: Icon(
+                      Icons.folder,
+                      color: colors.onSurfaceVariant,
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                ],
+                    label: Text(
+                      folder.name,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      shape: const StadiumBorder(),
+                      side: BorderSide(
+                        color: colors.outlineVariant.withValues(alpha: 0.5),
+                      ),
+                      foregroundColor: colors.onSurface,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
+            // More Folders text button
+            if (!isLargeScreen) ...[
+              Center(
+                child: TextButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const FoldersPage()),
+                    );
+                  },
+                  icon: const Icon(Icons.chevron_right_rounded),
+                  label: const Text('More folders'),
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
 
-                // List Header & Tabs
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            // List Header & Tabs
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Recent Sessions',
+                  style: textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: colors.onSurface,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Filter chips row
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: _buildSortFilterChips(colors),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Session list or empty states
+            filteredSessions.isEmpty
+                ? Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 60.0,
+                ),
+                child: Column(
                   children: [
+                    Icon(
+                      Icons.layers_clear_outlined,
+                      size: 64,
+                      color:
+                      colors.onSurfaceVariant.withValues(alpha: 0.4),
+                    ),
+                    const SizedBox(height: 16),
                     Text(
-                      'Recent Sessions',
-                      style: textTheme.titleLarge?.copyWith(
+                      'No Sessions Found',
+                      style: textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: colors.onSurface,
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      (_selectedPrimary == 'Ownership' &&
+                          _selectedSecondary == 'Shortcuts')
+                          ? 'Join a session to add it as a shortcut.'
+                          : 'Create a session or join one to get started.',
+                      style: textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant
+                            .withValues(alpha: 0.7),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-
-                // Filter chips row
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: _buildSortFilterChips(colors),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Session list or empty states
-                filteredSessions.isEmpty
-                    ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 60.0,
-                    ),
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.layers_clear_outlined,
-                          size: 64,
-                          color: colors.onSurfaceVariant
-                              .withValues(alpha: 0.4),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No Sessions Found',
-                          style: textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: colors.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          (_selectedPrimary == 'Ownership' &&
-                              _selectedSecondary == 'Shortcuts')
-                              ? 'Join a session to add it as a shortcut.'
-                              : 'Create a session or join one to get started.',
-                          style: textTheme.bodySmall?.copyWith(
-                            color: colors.onSurfaceVariant
-                                .withValues(alpha: 0.7),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-                    : ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: filteredSessions.length,
-                  itemBuilder: (context, index) {
-                    final session = filteredSessions[index];
-                    final isShortcut = _sessionService
-                        .isSessionShortcut(session.sessionID);
-                    final isFavorite = _sessionService
-                        .isSessionFavorite(session.sessionID);
-
-                    return SessionCard(
-                      session: session,
-                      isShortcut: isShortcut,
-                      isFavorite: isFavorite,
-                      onFavoriteToggle: () {
-                        _sessionService.toggleFavorite(session.sessionID);
-                      },
-                      onTap: () {
-                        _openSession(
-                          session: session,
-                          isParticipant: isShortcut,
-                        );
-                      },
-                      onDelete: () {
-                        _sessionService.deleteSession(
-                          session.sessionID,
-                        );
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              isShortcut
-                                  ? 'Shortcut removed.'
-                                  : 'Session moved to Trash.',
-                            ),
-                          ),
-                        );
-                      },
-                      onMoveToFolder: () => _showMoveToFolderDialog(session),
-                    );
-                  },
-                ),
-              ],
+              ),
+            )
+                : ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: filteredSessions.length,
+              itemBuilder: (context, index) {
+                return _buildHomeSessionCard(
+                  filteredSessions[index],
+                );
+              },
             ),
-          ),
+          ],
         ),
       ),
+    );
+  }
+
+  Widget _buildHomeSessionCard(Session session) {
+    final isShortcut = _sessionService.isSessionShortcut(session.sessionID);
+    final isFavorite = _sessionService.isSessionFavorite(session.sessionID);
+
+    return SessionCard(
+      session: session,
+      isShortcut: isShortcut,
+      isFavorite: isFavorite,
+      onFavoriteToggle: () {
+        _sessionService.toggleFavorite(session.sessionID);
+      },
+      onTap: () {
+        _openSession(
+          session: session,
+          isParticipant: isShortcut,
+        );
+      },
+      onDelete: () {
+        _sessionService.deleteSession(session.sessionID);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isShortcut ? 'Shortcut removed.' : 'Session moved to Trash.',
+            ),
+          ),
+        );
+      },
+      onMoveToFolder: () => _showMoveToFolderDialog(session),
     );
   }
 
@@ -1430,6 +1422,10 @@ class SessionCard extends StatelessWidget {
         .textTheme;
     final isExpired = session.isExpired;
     final expiryText = _getExpiryText(session.expiry);
+    final isLargeScreen = MediaQuery
+        .of(context)
+        .size
+        .width >= 700;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -1556,26 +1552,32 @@ class SessionCard extends StatelessWidget {
                   ),
                 ),
               ],
-              const SizedBox(height: 24),
-              // Expiry row moved here to prevent overflow
-              Row(
-                children: [
-                  Icon(
-                    Icons.timer_outlined,
-                    size: 16,
-                    color: isExpired ? colors.error : colors.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    expiryText,
-                    style: textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w500,
+              if (!isLargeScreen) ...[
+                const SizedBox(height: 24),
+                // Expiry row for mobile screens
+                Row(
+                  children: [
+                    Icon(
+                      Icons.timer_outlined,
+                      size: 16,
                       color: isExpired ? colors.error : colors.onSurfaceVariant,
                     ),
-                  ),
+                    const SizedBox(width: 6),
+                    Text(
+                      expiryText,
+                      style: textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w500,
+                        color: isExpired ? colors.error : colors
+                            .onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+              ] else
+                ...[
+                  const SizedBox(height: 12),
                 ],
-              ),
-              const SizedBox(height: 16),
               Divider(
                 color: colors.outlineVariant.withValues(alpha: 0.3),
               ),
@@ -1747,6 +1749,29 @@ class SessionCard extends StatelessWidget {
                       );
                     },
                   ),
+                  if (isLargeScreen) ...[
+                    const Spacer(),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.timer_outlined,
+                          size: 16,
+                          color: isExpired ? colors.error : colors
+                              .onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          expiryText,
+                          style: textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.w500,
+                            color: isExpired ? colors.error : colors
+                                .onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ],
