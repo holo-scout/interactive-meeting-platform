@@ -2,7 +2,7 @@
 An interactive meeting platform developed as a Final Year Project that enables lecturers and presenters to engage participants through live Q&A sessions, polls, quizzes, and AI-assisted quiz generation.
 
 ## Status
-🚧 In Development (Final Year Project)
+✅ Finished (Final Year Project)
 
 ## Overview
 This project aims to improve audience engagement during lectures, seminars, and meetings by providing an easy-to-use platform where participants can anonymously ask questions, answer polls, participate in quizzes, and receive real-time updates.
